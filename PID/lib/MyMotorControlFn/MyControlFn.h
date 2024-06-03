@@ -15,9 +15,9 @@
 #define LIM_SUP_E2 100
 #define LIM_INF_E2 30
 
-/// Tiempo de muestreo en milisegundos
+/// Tiempo de muestreo en segundos
 
-#define SAMPLE_TIME 200
+#define SAMPLE_TIME 0.02
 
 /// Funciones
 float linPWM(float valPWM, int numMot);

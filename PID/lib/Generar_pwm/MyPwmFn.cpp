@@ -36,7 +36,7 @@ mcpwm_gen_handle_t generadorA[3], generadorB[3];; //Se crean 6 generadores. Dos 
 mcpwm_generator_config_t conf_gen0A,conf_gen0B,conf_gen1A,conf_gen1B,conf_gen2A,conf_gen2B;
 
 //Declaración de función.
-static void set_comp_tres_motores(float duty[]);
+//static void set_comp_tres_motores(float duty[]);
 
 void pwm_init()
 {

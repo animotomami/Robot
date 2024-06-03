@@ -404,11 +404,10 @@ void ARDUINO_ISR_ATTR InterrrupTimer()
 //********************** MAIN **********************
 void setup()
 { 
-
   // Timer para tiempo de muestreo
   timer = timerBegin(1000000); // 1 Mhz de resolución (us)
   timerAttachInterrupt(timer, &InterrrupTimer);
-  timerAlarm(timer, (SAMPLE_TIME/1000)*1000000,true,0); // Set time en us
+  timerAlarm(timer, SAMPLE_TIME*1000000,true,0); // Set time en us
 
 //   //Se crea la clase del HSPI
 //   hspi = new SPIClass(HSPI);
@@ -552,6 +551,7 @@ while (Serial.available() > 0)
 
   if(has_expired)
   {
+    Serial.print("interrupcion");
     ang_0=encoder0_read(); //Introducir valor en el código si no hay encoder para hacer pruebas
     ang_1=encoder1_read();
     ang_2=encoder2_read();
