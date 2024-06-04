@@ -7,8 +7,9 @@ using namespace std;
 
 //Variables globales
 float duty_vec[3]={0,0,0}; //Array de duties. Pueden tomar valor -1 a 1.
-float _Pos_ref[3]={170,90,140}; //Posición de referencia en grados
+float _Pos_ref[3]={170,70,200}; //Posición de referencia en grados
 uint32_t _lastTimeSample=0;
+uint32_t _cont_serial=0;
 
 
 /////////////////////Declaración de parámetros del PID ////////////////
@@ -36,8 +37,8 @@ float satur_m2=0;  //Valor de la parte integral previa m1
 //Constantes del PID
 float kp_m0=6; //Constante Proporcional
 float ki_m0=2; //Constante Integral
-float kp_m2=6; //Constante Proporcional
-float ki_m2=2; //Constante Integral
+float kp_m2=1.5; //Constante Proporcional
+float ki_m2=1.2; //Constante Integral
 float kp_m1=3; //Constante Proporcional
 float ki_m1=1.2; //Constante Integral
 // float kd=-0.4447; //Constante Derivativa
@@ -90,10 +91,7 @@ float Robot_PID_m0(float pos_ref,float pos_encoder,float rangoError)
       I=Iprevio_m0+incrI; 
     }
 
-    if (pos_ref!=pos_ref_previa_m0)
-    {
-      I=0;
-    }
+   
   //Acción proporcional 
     P=kp_m0*(b*pos_ref-pos_encoder);
 
@@ -104,10 +102,7 @@ float Robot_PID_m0(float pos_ref,float pos_encoder,float rangoError)
   //Consigna de control
 
     u=P+I;
-    Serial.printf(">Proporcional M0: %f\n", P);     //envía la posición en grados al terminal serie
-    Serial.printf(">Integral M0: %f\n", I);     //envía la posición en grados al terminal serie
     
-
     if (u>satpos) //Si la consigna es mayor que la saturación se pone a 1.
     {  
       u=satpos; 
@@ -122,6 +117,11 @@ float Robot_PID_m0(float pos_ref,float pos_encoder,float rangoError)
     {
       Iprevio_m0=I; 
       satur_m0=0; 
+    }
+    
+    if (pos_ref!=pos_ref_previa_m0 || _cont_serial==0)
+    {
+      Iprevio_m0=0;
     }
 
   //Actualización de variables 
@@ -172,10 +172,7 @@ float Robot_PID_m1(float pos_ref,float pos_encoder,float rangoError)
       I=Iprevio_m1+incrI; 
     }
 
-    if (pos_ref!=pos_ref_previa_m1)
-    {
-      I=0;
-    }
+    
   //Acción proporcional 
     P=kp_m1*(b*pos_ref-pos_encoder);
 
@@ -186,8 +183,6 @@ float Robot_PID_m1(float pos_ref,float pos_encoder,float rangoError)
   //Consigna de control
 
     u=P+I;
-    Serial.printf(">Proporcional M1: %f\n", P);     //envía la posición en grados al terminal serie
-    Serial.printf(">Integral M1: %f\n", I);     //envía la posición en grados al terminal serie
     
 
     if (u>satpos) //Si la consigna es mayor que la saturación se pone a 1.
@@ -204,6 +199,11 @@ float Robot_PID_m1(float pos_ref,float pos_encoder,float rangoError)
     {
       Iprevio_m1=I; 
       satur_m1=0; 
+    }
+
+    if (pos_ref!=pos_ref_previa_m1 || _cont_serial==0)
+    {
+      Iprevio_m1=0;
     }
 
   //Actualización de variables 
@@ -254,10 +254,7 @@ float Robot_PID_m2(float pos_ref,float pos_encoder,float rangoError)
       I=Iprevio_m2+incrI; 
     }
 
-    if (pos_ref!=pos_ref_previa_m2)
-    {
-      I=0;
-    }
+    
   //Acción proporcional 
     P=kp_m2*(b*pos_ref-pos_encoder);
 
@@ -265,11 +262,14 @@ float Robot_PID_m2(float pos_ref,float pos_encoder,float rangoError)
     // D=Q1*Dprevio+Q2*c*(pos_ref-pos_ref_previa_m0)-Q2*(pos_encoder-pos_encoder_previa_m0);
     // Dprevio=D;
 
+  if (pos_ref!=pos_ref_previa_m2 || _cont_serial==0)
+    {
+      Iprevio_m2=0;
+      I=0;
+    }
   //Consigna de control
 
     u=P+I;
-    Serial.printf(">Proporcional M2: %f\n", P);     //envía la posición en grados al terminal serie
-    Serial.printf(">Integral M2: %f\n", I);     //envía la posición en grados al terminal serie
     
 
     if (u>satpos) //Si la consigna es mayor que la saturación se pone a 1.
@@ -286,6 +286,12 @@ float Robot_PID_m2(float pos_ref,float pos_encoder,float rangoError)
     {
       Iprevio_m2=I; 
       satur_m2=0; 
+    }
+
+    if (pos_ref!=pos_ref_previa_m2 || _cont_serial==0)
+    {
+      Iprevio_m2=0;
+      I=0;
     }
 
   //Actualización de variables 
@@ -343,6 +349,7 @@ String refPosition;
 
 while (Serial.available()>0)    // Si hay datos disponibles por el puerto serie:
       {
+        _cont_serial++;
         String input=Serial.readString();
         input.replace(" ", "");
 
@@ -373,6 +380,10 @@ while (Serial.available()>0)    // Si hay datos disponibles por el puerto serie:
               _Pos_ref[2]=Pos_ref_prelim;
           }
         }
+        else if(input.startsWith("STOP"))
+        {
+          _cont_serial=0;
+        }
       }
 
 // while (Serial.available() > 0)
@@ -380,12 +391,13 @@ while (Serial.available()>0)    // Si hay datos disponibles por el puerto serie:
 //     refPosition = Serial.readString();
 //     refPosition.trim();
 //     int j=0;
-//     int coma_pos_ant;
+//     int coma_pos_ant=0;
 //     for(int i=0;i<3;i++)
 //     {
+//       Serial.printf(">J: ",j);
       
 //       int coma_pos=refPosition.indexOf(",",j);
-//       refPosition.substring(j, coma_pos);
+//       refPosition=refPosition.substring(j, coma_pos);
 
 //       float Pos_ref_prelim = refPosition.toFloat();      // pass string to float value for control
 //       int lim_sup;
@@ -408,11 +420,11 @@ while (Serial.available()>0)    // Si hay datos disponibles por el puerto serie:
 //       {
 //           _Pos_ref[i]=Pos_ref_prelim;
 //       }
-//     coma_pos_ant=coma_pos;
+//     j=coma_pos+1;
 //     }
 
     
-  //}
+//   }
 
   // Se ejecuta cada entrada a interrupción
 
@@ -422,17 +434,27 @@ while (Serial.available()>0)    // Si hay datos disponibles por el puerto serie:
     ang_0=encoder0_read(); //Introducir valor en el código si no hay encoder para hacer pruebas
     ang_1=encoder1_read();
     ang_2=encoder2_read();
-    
-    // Cálculo de variable de control de motores
 
-    u_PID_M0=Robot_PID_m0(_Pos_ref[0],ang_0,3); //Primer parámetro Posición de referencia; Segundo parámetro posición actual del encoder; Tercer parámetro: grados de margen para error
-    u_PID_M1=Robot_PID_m1(_Pos_ref[1],ang_1,3);
-    u_PID_M2=Robot_PID_m2(_Pos_ref[2],ang_2,3);
+    if ((ang_0>=LIM_SUP_E0 || ang_0<=LIM_INF_E0) || (ang_1>=LIM_SUP_E1 || ang_1<=LIM_INF_E1) || (ang_2>=LIM_SUP_E2 || ang_2<=LIM_INF_E2) || _cont_serial==0)
+    {
+        u_PID_M0=0; //Primer parámetro Posición de referencia; Segundo parámetro posición actual del encoder; Tercer parámetro: grados de margen para error
+        u_PID_M1=0;
+        u_PID_M2=0;
+        Iprevio_m2=0;
+    }
+    else
+    {
+        // Cálculo de variable de control de motores
 
+      u_PID_M0=Robot_PID_m0(_Pos_ref[0],ang_0,3); //Primer parámetro Posición de referencia; Segundo parámetro posición actual del encoder; Tercer parámetro: grados de margen para error
+      u_PID_M1=Robot_PID_m1(_Pos_ref[1],ang_1,3);
+      u_PID_M2=Robot_PID_m2(_Pos_ref[2],ang_2,3);
+
+    }    
     // Aplica pwm a motores
 
     duty_vec[0]=linPWM(u_PID_M0, 0);
-    duty_vec[1]=linPWM(u_PID_M1, 1);
+    duty_vec[1]=0;
     duty_vec[2]=linPWM(u_PID_M2, 2);
     set_comp_tres_motores(duty_vec);
 
