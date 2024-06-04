@@ -6,44 +6,57 @@
 using namespace std;
 
 //Variables globales
-float duty_vec[3]={0,-0.5,0.5}; //Array de duties. Pueden tomar valor -1 a 1.
-float _Pos_ref=140; //Posición de referencia en grados
+float duty_vec[3]={0,0,0}; //Array de duties. Pueden tomar valor -1 a 1.
+float _Pos_ref[3]={170,90,140}; //Posición de referencia en grados
 uint32_t _lastTimeSample=0;
 
 
 /////////////////////Declaración de parámetros del PID ////////////////
 
-float N=100.104; //Coeficiente del filtro para la acción diferencial 
+// float N=100.104; //Coeficiente del filtro para la acción diferencial 
 float b=1; //Peso del punto de funcionamiento en el término proporcional
-float c=2.547; //Peso del punto de funcionamiento en el término de la acción diferencial
-float Ts=0.001; //Periodo de muestreo
+// float c=2.547; //Peso del punto de funcionamiento en el término de la acción diferencial
+float Ts=0.1; //Periodo de muestreo
 
 float satpos=245; //Valor de la saturación positiva del control. 
 float satneg=-245; //Valor de la saturación negativa del control. 
 
-float Q1;
-float Q2;
+// float Q1;
+// float Q2;
 //Declaracion de variables
 
-float Dprevio=0; //Valor de la parte derivativa previo
-float Iprevio=0;  //Valor de la parte integral previa
-float satur; //Saturacion para integrar el anti-windup
+// float Dprevio=0; //Valor de la parte derivativa previo
+float Iprevio_m0=0;  //Valor de la parte integral previa m0
+float Iprevio_m1=0;  //Valor de la parte integral previa m1
+float Iprevio_m2=0;  //Valor de la parte integral previa m1
+float satur_m0=0; //Saturacion para integrar el anti-windup m0
+float satur_m1=0; //Saturacion para integrar el anti-windup m1
+float satur_m2=0;  //Valor de la parte integral previa m1
 
 //Constantes del PID
-float kp=4.5; //Constante Proporcional
-float ki=200; //Constante Integral
-float kd=-0.4447; //Constante Derivativa
+float kp_m0=6; //Constante Proporcional
+float ki_m0=2; //Constante Integral
+float kp_m1=6; //Constante Proporcional
+float ki_m1=2; //Constante Integral
+float kp_m2=3; //Constante Proporcional
+float ki_m2=1.2; //Constante Integral
+// float kd=-0.4447; //Constante Derivativa
 
 //Variables de memoria
 
-float pos_ref_previa;
-float pos_encoder_previa;
+float pos_ref_previa_m0;
+float pos_ref_previa_m1;
+float pos_ref_previa_m2;
+float pos_encoder_previa_m0;
+float pos_encoder_previa_m1;
+float pos_encoder_previa_m2;
+
 
 //////////////////////////////////////////////////////
 
 //********************** FN PID **********************
 
-float Robot_PID(float pos_ref,float pos_encoder,float rangoError)
+float Robot_PID_m0(float pos_ref,float pos_encoder,float rangoError)
 {
     //Declaración de la variable de control
 
@@ -54,58 +67,66 @@ float Robot_PID(float pos_ref,float pos_encoder,float rangoError)
 
     float P;
     float I;
-    float D;   
+    // float D;   
 
     float incrI;
     float error = pos_ref-pos_encoder;
     
     //Definición de factores 
-    Q1=1-N*Ts; //Cálculo del parámetro Q1
-    Q2=kd*N;  //Cálculo del parámetro Q2
+    // Q1=1-N*Ts; //Cálculo del parámetro Q1
+    // Q2=kd*N;  //Cálculo del parámetro Q2
  
   if (error>=rangoError || error<=(rangoError*(-1))) // Si el error es menor
   {
     //Acción integral 
-    incrI=ki*Ts*(pos_ref_previa-pos_encoder_previa); 
+    incrI=ki_m0*Ts*(pos_ref_previa_m0-pos_encoder_previa_m0); // Convertir a almacenamiento de error (IMPORTANTE)
   //Antiwind‐up 
-    if (satur*incrI>0)
+    if (satur_m0*incrI>0)
     {
-      I=Iprevio;
+      I=Iprevio_m0;
     } 
     else
     { 
-      I=Iprevio+ki*Ts*(pos_ref_previa-pos_encoder_previa); 
+      I=Iprevio_m0+incrI; 
+    }
+
+    if (pos_ref!=pos_ref_previa_m0)
+    {
+      I=0;
     }
   //Acción proporcional 
-    P=kp*(b*pos_ref-pos_encoder);
+    P=kp_m0*(b*pos_ref-pos_encoder);
 
   //Acción derivativa 
-    D=Q1*Dprevio+Q2*c*(pos_ref-pos_ref_previa)-Q2*(pos_encoder-pos_encoder_previa);
-    Dprevio=D;
+    // D=Q1*Dprevio+Q2*c*(pos_ref-pos_ref_previa_m0)-Q2*(pos_encoder-pos_encoder_previa_m0);
+    // Dprevio=D;
 
   //Consigna de control
 
     u=P+I;
+    Serial.printf(">Proporcional M0: %f\n", P);     //envía la posición en grados al terminal serie
+    Serial.printf(">Integral M0: %f\n", I);     //envía la posición en grados al terminal serie
+    
 
     if (u>satpos) //Si la consigna es mayor que la saturación se pone a 1.
     {  
       u=satpos; 
-      satur=1;
+      satur_m0=1;
     }
     else if (u<satneg) //Si la consigna es menor que la saturación se pone a -1
     {
       u=satneg; 
-      satur=-1;
+      satur_m0=-1;
     }
     else //Si no se cumple ninguna condición anterior la consigna no se modifica
     {
-      Iprevio=I; 
-      satur=0; 
+      Iprevio_m0=I; 
+      satur_m0=0; 
     }
 
   //Actualización de variables 
-  pos_ref_previa=pos_ref; //Actualizar posicion de referencia previ del paso anterior
-  pos_encoder_previa=pos_encoder; //Actualizar posición del encoder previa del paso anterior
+  pos_ref_previa_m0=pos_ref; //Actualizar posicion de referencia previ del paso anterior
+  pos_encoder_previa_m0=pos_encoder; //Actualizar posición del encoder previa del paso anterior
   u_pwm=u/245;
   }
   else
@@ -116,6 +137,171 @@ float Robot_PID(float pos_ref,float pos_encoder,float rangoError)
 
 return u_pwm;
 }
+
+float Robot_PID_m1(float pos_ref,float pos_encoder,float rangoError)
+{
+    //Declaración de la variable de control
+
+    float u;
+    float u_pwm;
+
+    //Declaración de las variables temporales del PID
+
+    float P;
+    float I;
+    // float D;   
+
+    float incrI;
+    float error = pos_ref-pos_encoder;
+    
+    //Definición de factores 
+    // Q1=1-N*Ts; //Cálculo del parámetro Q1
+    // Q2=kd*N;  //Cálculo del parámetro Q2
+ 
+  if (error>=rangoError || error<=(rangoError*(-1))) // Si el error es menor
+  {
+    //Acción integral 
+    incrI=ki_m1*Ts*(pos_ref_previa_m1-pos_encoder_previa_m1); // Convertir a almacenamiento de error (IMPORTANTE)
+  //Antiwind‐up 
+    if (satur_m1*incrI>0)
+    {
+      I=Iprevio_m1;
+    } 
+    else
+    { 
+      I=Iprevio_m1+incrI; 
+    }
+
+    if (pos_ref!=pos_ref_previa_m1)
+    {
+      I=0;
+    }
+  //Acción proporcional 
+    P=kp_m1*(b*pos_ref-pos_encoder);
+
+  //Acción derivativa 
+    // D=Q1*Dprevio+Q2*c*(pos_ref-pos_ref_previa_m0)-Q2*(pos_encoder-pos_encoder_previa_m0);
+    // Dprevio=D;
+
+  //Consigna de control
+
+    u=P+I;
+    Serial.printf(">Proporcional M1: %f\n", P);     //envía la posición en grados al terminal serie
+    Serial.printf(">Integral M1: %f\n", I);     //envía la posición en grados al terminal serie
+    
+
+    if (u>satpos) //Si la consigna es mayor que la saturación se pone a 1.
+    {  
+      u=satpos; 
+      satur_m1=1;
+    }
+    else if (u<satneg) //Si la consigna es menor que la saturación se pone a -1
+    {
+      u=satneg; 
+      satur_m1=-1;
+    }
+    else //Si no se cumple ninguna condición anterior la consigna no se modifica
+    {
+      Iprevio_m1=I; 
+      satur_m1=0; 
+    }
+
+  //Actualización de variables 
+  pos_ref_previa_m1=pos_ref; //Actualizar posicion de referencia previ del paso anterior
+  pos_encoder_previa_m1=pos_encoder; //Actualizar posición del encoder previa del paso anterior
+  u_pwm=u/245;
+  }
+  else
+  {
+    u_pwm=0;
+  }
+  
+
+return u_pwm;
+}
+
+float Robot_PID_m2(float pos_ref,float pos_encoder,float rangoError)
+{
+    //Declaración de la variable de control
+
+    float u;
+    float u_pwm;
+
+    //Declaración de las variables temporales del PID
+
+    float P;
+    float I;
+    // float D;   
+
+    float incrI;
+    float error = pos_ref-pos_encoder;
+    
+    //Definición de factores 
+    // Q1=1-N*Ts; //Cálculo del parámetro Q1
+    // Q2=kd*N;  //Cálculo del parámetro Q2
+ 
+  if (error>=rangoError || error<=(rangoError*(-1))) // Si el error es menor
+  {
+    //Acción integral 
+    incrI=ki_m2*Ts*(pos_ref_previa_m2-pos_encoder_previa_m2); // Convertir a almacenamiento de error (IMPORTANTE)
+  //Antiwind‐up 
+    if (satur_m2*incrI>0)
+    {
+      I=Iprevio_m2;
+    } 
+    else
+    { 
+      I=Iprevio_m2+incrI; 
+    }
+
+    if (pos_ref!=pos_ref_previa_m2)
+    {
+      I=0;
+    }
+  //Acción proporcional 
+    P=kp_m2*(b*pos_ref-pos_encoder);
+
+  //Acción derivativa 
+    // D=Q1*Dprevio+Q2*c*(pos_ref-pos_ref_previa_m0)-Q2*(pos_encoder-pos_encoder_previa_m0);
+    // Dprevio=D;
+
+  //Consigna de control
+
+    u=P+I;
+    Serial.printf(">Proporcional M2: %f\n", P);     //envía la posición en grados al terminal serie
+    Serial.printf(">Integral M2: %f\n", I);     //envía la posición en grados al terminal serie
+    
+
+    if (u>satpos) //Si la consigna es mayor que la saturación se pone a 1.
+    {  
+      u=satpos; 
+      satur_m2=1;
+    }
+    else if (u<satneg) //Si la consigna es menor que la saturación se pone a -1
+    {
+      u=satneg; 
+      satur_m2=-1;
+    }
+    else //Si no se cumple ninguna condición anterior la consigna no se modifica
+    {
+      Iprevio_m2=I; 
+      satur_m2=0; 
+    }
+
+  //Actualización de variables 
+  pos_ref_previa_m2=pos_ref; //Actualizar posicion de referencia previ del paso anterior
+  pos_encoder_previa_m2=pos_encoder; //Actualizar posición del encoder previa del paso anterior
+  u_pwm=u/245;
+  }
+  else
+  {
+    u_pwm=0;
+  }
+  
+
+return u_pwm;
+}
+
 
 hw_timer_t * timer = NULL; // Puntero para configurar timer
 
@@ -154,17 +340,79 @@ void loop() {
 // Cambiar set point por serial
 
 String refPosition;
-while (Serial.available() > 0)
-  {
-    refPosition = Serial.readString();
-    refPosition.trim();
-    Serial.printf("ref set to: %f \n", refPosition.toFloat());
-    float Pos_ref_prelim = refPosition.toFloat();      // pass string to float value for control
-    if (Pos_ref_prelim >= LIM_INF_E2 && Pos_ref_prelim <= LIM_SUP_E2)
-    {
-        _Pos_ref=Pos_ref_prelim;
-    }
-  }
+
+while (Serial.available()>0)    // Si hay datos disponibles por el puerto serie:
+      {
+        String input=Serial.readString();
+        input.replace(" ", "");
+
+        if (input.startsWith("M0="))
+        {
+          input=input.substring(3);
+          int Pos_ref_prelim=input.toFloat();
+          if (Pos_ref_prelim>= LIM_INF_E0 && Pos_ref_prelim <= LIM_SUP_E0)
+          {
+              _Pos_ref[0]=Pos_ref_prelim;
+          }
+        }
+        else if (input.startsWith("M1="))
+        {
+           input=input.substring(3);
+          int Pos_ref_prelim=input.toFloat();
+          if (Pos_ref_prelim>= LIM_INF_E1 && Pos_ref_prelim <= LIM_SUP_E1)
+          {
+              _Pos_ref[1]=Pos_ref_prelim;
+          }
+        }
+        else if (input.startsWith("M2="))
+        {
+           input=input.substring(3);
+          int Pos_ref_prelim=input.toFloat();
+          if (Pos_ref_prelim>= LIM_INF_E2 && Pos_ref_prelim <= LIM_SUP_E2)
+          {
+              _Pos_ref[2]=Pos_ref_prelim;
+          }
+        }
+      }
+
+// while (Serial.available() > 0)
+//   {
+//     refPosition = Serial.readString();
+//     refPosition.trim();
+//     int j=0;
+//     int coma_pos_ant;
+//     for(int i=0;i<3;i++)
+//     {
+      
+//       int coma_pos=refPosition.indexOf(",",j);
+//       refPosition.substring(j, coma_pos);
+
+//       float Pos_ref_prelim = refPosition.toFloat();      // pass string to float value for control
+//       int lim_sup;
+//       int lim_inf;
+//       if(i==0)
+//       {
+//         lim_sup=LIM_SUP_E0;
+//         lim_inf=LIM_INF_E0;
+//       }else if(i==1)
+//       {
+//         lim_sup=LIM_SUP_E1;
+//         lim_inf=LIM_INF_E1;
+//       }else if (i==2)
+//       {
+//         lim_sup=LIM_SUP_E2;
+//         lim_inf=LIM_INF_E2;
+//       }
+
+//       if (Pos_ref_prelim>= lim_inf && Pos_ref_prelim <= lim_sup)
+//       {
+//           _Pos_ref[i]=Pos_ref_prelim;
+//       }
+//     coma_pos_ant=coma_pos;
+//     }
+
+    
+  //}
 
   // Se ejecuta cada entrada a interrupción
 
@@ -177,9 +425,9 @@ while (Serial.available() > 0)
     
     // Cálculo de variable de control de motores
 
-    u_PID_M0=Robot_PID(_Pos_ref,ang_0,3); //Primer parámetro Posición de referencia; Segundo parámetro posición actual del encoder; Tercer parámetro: grados de margen para error
-    u_PID_M1=Robot_PID(_Pos_ref,ang_1,3);
-    u_PID_M2=Robot_PID(_Pos_ref,ang_2,3);
+    u_PID_M0=Robot_PID_m0(_Pos_ref[0],ang_0,3); //Primer parámetro Posición de referencia; Segundo parámetro posición actual del encoder; Tercer parámetro: grados de margen para error
+    u_PID_M1=Robot_PID_m1(_Pos_ref[1],ang_1,3);
+    u_PID_M2=Robot_PID_m2(_Pos_ref[2],ang_2,3);
 
     // Aplica pwm a motores
 
@@ -190,30 +438,32 @@ while (Serial.available() > 0)
 
     // Imprime info
 
-    Serial.print("Ángulo encoder M0: "); 
-    Serial.printf(">Ángulo encoder: %f\n", ang_0);     //envía la posición en grados al terminal serie
-    Serial.println(ang_0);     //envía la posición en grados al terminal serie
+    //Serial.print("Ángulo encoder M0: "); 
+    Serial.printf(">Ángulo encoder M0: %f\n", ang_0);     //envía la posición en grados al terminal serie
+    // Serial.println(ang_0);     //envía la posición en grados al terminal serie
 
-    Serial.print("Variable de control M0: ");
+    Serial.print(">Variable de control M0: ");
     Serial.println(duty_vec[0]);
 
-    Serial.print("Ángulo encoder M1: "); 
-    Serial.printf(">Ángulo encoder: %f\n", ang_1);     //envía la posición en grados al terminal serie
-    Serial.println(ang_1);     //envía la posición en grados al terminal serie
+    // Serial.print("Ángulo encoder M1: "); 
+    Serial.printf(">Ángulo encoder M1: %f\n", ang_1);     //envía la posición en grados al terminal serie
+    // Serial.println(ang_1);     //envía la posición en grados al terminal serie
 
-    Serial.print("Variable de control M1: ");
+    Serial.print(">Variable de control M1: ");
     Serial.println(duty_vec[1]);
 
-    Serial.print("Ángulo encoder M2: "); 
-    Serial.printf(">Ángulo encoder: %f\n", ang_2);     //envía la posición en grados al terminal serie
-    Serial.println(ang_2);     //envía la posición en grados al terminal serie
+    // Serial.print("Ángulo encoder M2: "); 
+    Serial.printf(">Ángulo encoder M2: %f\n", ang_2);     //envía la posición en grados al terminal serie
+    // Serial.println(ang_2);     //envía la posición en grados al terminal serie
 
-    Serial.print("Variable de control M2: ");
+    Serial.print(">Variable de control M2: ");
     Serial.println(duty_vec[2]);
 
-    Serial.print("Set point: ");
-    Serial.printf(">Set point: %f\n", _Pos_ref);     //envía la posición en grados al terminal serie
-    Serial.println(_Pos_ref);  
+    // Serial.print("Set point: ");
+    Serial.printf(">Set point M0: %f\n", _Pos_ref[0]);     //envía la posición en grados al terminal serie
+    Serial.printf(">Set point M1: %f\n", _Pos_ref[1]);     //envía la posición en grados al terminal serie
+    Serial.printf(">Set point M2: %f\n", _Pos_ref[2]);     //envía la posición en grados al terminal serie
+    // Serial.println(_Pos_ref);  
     
     has_expired=false;
   }
