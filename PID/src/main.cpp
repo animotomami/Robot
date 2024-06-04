@@ -9,7 +9,7 @@ using namespace std;
 float duty_vec[3]={0,0,0}; //Array de duties. Pueden tomar valor -1 a 1.
 float _Pos_ref[3]={170,70,200}; //Posición de referencia en grados
 uint32_t _lastTimeSample=0;
-uint32_t _cont_serial=0;
+uint32_t _cont_serial=0,_stop=0;
 
 
 /////////////////////Declaración de parámetros del PID ////////////////
@@ -379,6 +379,11 @@ while (Serial.available()>0)    // Si hay datos disponibles por el puerto serie:
         else if(input.startsWith("STOP"))
         {
           _cont_serial=0;
+          _stop=1;
+        }
+        else if(input.startsWith("GO"))
+        {
+          _stop=0;
         }
       }
 
@@ -431,7 +436,7 @@ while (Serial.available()>0)    // Si hay datos disponibles por el puerto serie:
     ang_1=encoder1_read();
     ang_2=encoder2_read();
 
-    if ((ang_0>=LIM_SUP_E0 || ang_0<=LIM_INF_E0) || (ang_1>=LIM_SUP_E1 || ang_1<=LIM_INF_E1) || (ang_2>=LIM_SUP_E2 || ang_2<=LIM_INF_E2) || _cont_serial==0)
+    if ((ang_0>=LIM_SUP_E0 || ang_0<=LIM_INF_E0) || (ang_1>=LIM_SUP_E1 || ang_1<=LIM_INF_E1) || (ang_2>=LIM_SUP_E2 || ang_2<=LIM_INF_E2) || _cont_serial==0 || _stop==1)
     {
         u_PID_M0=0; //Primer parámetro Posición de referencia; Segundo parámetro posición actual del encoder; Tercer parámetro: grados de margen para error
         u_PID_M1=0;
@@ -449,9 +454,9 @@ while (Serial.available()>0)    // Si hay datos disponibles por el puerto serie:
     }    
     // Aplica pwm a motores
 
-    duty_vec[0]=0;
+    duty_vec[0]=linPWM(u_PID_M0, 0);
     duty_vec[1]=linPWM(u_PID_M1, 1);
-    duty_vec[2]=0;
+    duty_vec[2]=linPWM(u_PID_M2, 2);
     set_comp_tres_motores(duty_vec);
 
     // Imprime info

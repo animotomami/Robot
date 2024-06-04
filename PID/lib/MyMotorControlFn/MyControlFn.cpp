@@ -12,7 +12,7 @@ float linPWM(float valPWM, int numMot)
     float min_fwd = 0.01, min_bck=-0.01;
     // {base,hombro,codo}
     float upLimit_fwd[3] = {0.8,1, 0.8};
-    float lowLimit_fwd[3] = {0.4,0.8, 0.45};
+    float lowLimit_fwd[3] = {0.4,0.75, 0.45};
 
     float upLimit_bck[3] = {-0.8,-0.45, -0.8};
     float lowLimit_bck[3] = {-0.4,-0.35,-0.5};
