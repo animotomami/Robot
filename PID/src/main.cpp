@@ -16,7 +16,7 @@ uint32_t _lastTimeSample=0;
 // float N=100.104; //Coeficiente del filtro para la acción diferencial 
 float b=1; //Peso del punto de funcionamiento en el término proporcional
 // float c=2.547; //Peso del punto de funcionamiento en el término de la acción diferencial
-float Ts=0.1; //Periodo de muestreo
+float Ts=SAMPLE_TIME; //Periodo de muestreo
 
 float satpos=245; //Valor de la saturación positiva del control. 
 float satneg=-245; //Valor de la saturación negativa del control. 
@@ -36,10 +36,10 @@ float satur_m2=0;  //Valor de la parte integral previa m1
 //Constantes del PID
 float kp_m0=6; //Constante Proporcional
 float ki_m0=2; //Constante Integral
-float kp_m1=6; //Constante Proporcional
-float ki_m1=2; //Constante Integral
-float kp_m2=3; //Constante Proporcional
-float ki_m2=1.2; //Constante Integral
+float kp_m2=6; //Constante Proporcional
+float ki_m2=2; //Constante Integral
+float kp_m1=3; //Constante Proporcional
+float ki_m1=1.2; //Constante Integral
 // float kd=-0.4447; //Constante Derivativa
 
 //Variables de memoria
