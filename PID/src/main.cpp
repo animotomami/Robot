@@ -39,7 +39,7 @@ float kp_m0=6; //Constante Proporcional
 float ki_m0=2; //Constante Integral
 float kp_m2=1.5; //Constante Proporcional
 float ki_m2=1.2; //Constante Integral
-float kp_m1=3; //Constante Proporcional
+float kp_m1=1.5; //Constante Proporcional
 float ki_m1=1.2; //Constante Integral
 // float kd=-0.4447; //Constante Derivativa
 
@@ -262,7 +262,7 @@ float Robot_PID_m2(float pos_ref,float pos_encoder,float rangoError)
     // D=Q1*Dprevio+Q2*c*(pos_ref-pos_ref_previa_m0)-Q2*(pos_encoder-pos_encoder_previa_m0);
     // Dprevio=D;
 
-  if (pos_ref!=pos_ref_previa_m2 || _cont_serial==0)
+  if (pos_ref!=pos_ref_previa_m2)
     {
       Iprevio_m2=0;
       I=0;
@@ -288,11 +288,7 @@ float Robot_PID_m2(float pos_ref,float pos_encoder,float rangoError)
       satur_m2=0; 
     }
 
-    if (pos_ref!=pos_ref_previa_m2 || _cont_serial==0)
-    {
-      Iprevio_m2=0;
-      I=0;
-    }
+    
 
   //Actualización de variables 
   pos_ref_previa_m2=pos_ref; //Actualizar posicion de referencia previ del paso anterior
@@ -448,14 +444,14 @@ while (Serial.available()>0)    // Si hay datos disponibles por el puerto serie:
 
       u_PID_M0=Robot_PID_m0(_Pos_ref[0],ang_0,3); //Primer parámetro Posición de referencia; Segundo parámetro posición actual del encoder; Tercer parámetro: grados de margen para error
       u_PID_M1=Robot_PID_m1(_Pos_ref[1],ang_1,3);
-      u_PID_M2=Robot_PID_m2(_Pos_ref[2],ang_2,3);
+      u_PID_M2=Robot_PID_m2(_Pos_ref[2],ang_2,2);
 
     }    
     // Aplica pwm a motores
 
-    duty_vec[0]=linPWM(u_PID_M0, 0);
-    duty_vec[1]=0;
-    duty_vec[2]=linPWM(u_PID_M2, 2);
+    duty_vec[0]=0;
+    duty_vec[1]=linPWM(u_PID_M1, 1);
+    duty_vec[2]=0;
     set_comp_tres_motores(duty_vec);
 
     // Imprime info
