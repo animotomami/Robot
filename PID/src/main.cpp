@@ -14,19 +14,19 @@ uint32_t _cont_serial=0,_stop=0;
 
 /////////////////////Declaración de parámetros del PID ////////////////
 
-// float N=100.104; //Coeficiente del filtro para la acción diferencial 
+float N=1; //Coeficiente del filtro para la acción diferencial 
 float b=1; //Peso del punto de funcionamiento en el término proporcional
-// float c=2.547; //Peso del punto de funcionamiento en el término de la acción diferencial
+float c=2.5; //Peso del punto de funcionamiento en el término de la acción diferencial
 float Ts=SAMPLE_TIME; //Periodo de muestreo
 
 float satpos=245; //Valor de la saturación positiva del control. 
 float satneg=-245; //Valor de la saturación negativa del control. 
 
-// float Q1;
-// float Q2;
+float Q1;
+float Q2;
 //Declaracion de variables
 
-// float Dprevio=0; //Valor de la parte derivativa previo
+float Dprevio_m1=0; //Valor de la parte derivativa previo
 float Iprevio_m0=0;  //Valor de la parte integral previa m0
 float Iprevio_m1=0;  //Valor de la parte integral previa m1
 float Iprevio_m2=0;  //Valor de la parte integral previa m1
@@ -41,7 +41,7 @@ float kp_m2=1.5; //Constante Proporcional
 float ki_m2=1.2; //Constante Integral
 float kp_m1=1.5; //Constante Proporcional
 float ki_m1=1.2; //Constante Integral
-// float kd=-0.4447; //Constante Derivativa
+float kd_m1=0.4447; //Constante Derivativa
 
 //Variables de memoria
 
@@ -149,14 +149,14 @@ float Robot_PID_m1(float pos_ref,float pos_encoder,float rangoError)
 
     float P;
     float I;
-    // float D;   
+    float D;   
 
     float incrI;
     float error = pos_ref-pos_encoder;
     
     //Definición de factores 
-    // Q1=1-N*Ts; //Cálculo del parámetro Q1
-    // Q2=kd*N;  //Cálculo del parámetro Q2
+    Q1=1-N*Ts; //Cálculo del parámetro Q1
+    Q2=kd_m1*N;  //Cálculo del parámetro Q2
  
   if (error>=rangoError || error<=(rangoError*(-1))) // Si el error es menor
   {
@@ -177,12 +177,12 @@ float Robot_PID_m1(float pos_ref,float pos_encoder,float rangoError)
     P=kp_m1*(b*pos_ref-pos_encoder);
 
   //Acción derivativa 
-    // D=Q1*Dprevio+Q2*c*(pos_ref-pos_ref_previa_m0)-Q2*(pos_encoder-pos_encoder_previa_m0);
-    // Dprevio=D;
+    D=Q1*Dprevio_m1+Q2*c*(pos_ref-pos_ref_previa_m0)-Q2*(pos_encoder-pos_encoder_previa_m0);
+    Dprevio_m1=D;
 
   //Consigna de control
 
-    u=P+I;
+    u=P+I+D;
     
 
     if (u>satpos) //Si la consigna es mayor que la saturación se pone a 1.
@@ -461,6 +461,10 @@ while (Serial.available()>0)    // Si hay datos disponibles por el puerto serie:
 
     // Imprime info
 
+    // Serial.print("Set point: ");
+    Serial.printf(">Set point M0: %f\n", _Pos_ref[0]);     //envía la posición en grados al terminal serie
+    Serial.printf(">Set point M1: %f\n", _Pos_ref[1]);     //envía la posición en grados al terminal serie
+    Serial.printf(">Set point M2: %f\n", _Pos_ref[2]);     //envía la posición en grados al terminal serie
     //Serial.print("Ángulo encoder M0: "); 
     Serial.printf(">Ángulo encoder M0: %f\n", ang_0);     //envía la posición en grados al terminal serie
     // Serial.println(ang_0);     //envía la posición en grados al terminal serie
@@ -482,10 +486,7 @@ while (Serial.available()>0)    // Si hay datos disponibles por el puerto serie:
     Serial.print(">Variable de control M2: ");
     Serial.println(duty_vec[2]);
 
-    // Serial.print("Set point: ");
-    Serial.printf(">Set point M0: %f\n", _Pos_ref[0]);     //envía la posición en grados al terminal serie
-    Serial.printf(">Set point M1: %f\n", _Pos_ref[1]);     //envía la posición en grados al terminal serie
-    Serial.printf(">Set point M2: %f\n", _Pos_ref[2]);     //envía la posición en grados al terminal serie
+    
     // Serial.println(_Pos_ref);  
     
     has_expired=false;
