@@ -185,7 +185,6 @@ float Robot_PID_m1(float pos_ref,float pos_encoder,float rangoError)
 
   //Consigna de control
 
-
   if (((P+D)<0 && P>0) || ((P+D)>0 && P<0))
   {
     u=0;
