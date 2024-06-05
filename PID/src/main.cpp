@@ -10,6 +10,7 @@ float duty_vec[3]={0,0,0}; //Array de duties. Pueden tomar valor -1 a 1.
 float _Pos_ref[3]={170,70,200}; //Posición de referencia en grados
 uint32_t _lastTimeSample=0;
 uint32_t _cont_serial=0,_stop=0;
+float _error_ant=0;
 
 
 /////////////////////Declaración de parámetros del PID ////////////////
@@ -39,9 +40,9 @@ float kp_m0=6; //Constante Proporcional
 float ki_m0=2; //Constante Integral
 float kp_m2=1.5; //Constante Proporcional
 float ki_m2=1.2; //Constante Integral
-float kp_m1=1.5; //Constante Proporcional
+float kp_m1=1.8; //Constante Proporcional
 float ki_m1=1.2; //Constante Integral
-float kd_m1=0.4447; //Constante Derivativa
+float kd_m1=0.2; //Constante Derivativa
 
 //Variables de memoria
 
@@ -155,8 +156,8 @@ float Robot_PID_m1(float pos_ref,float pos_encoder,float rangoError)
     float error = pos_ref-pos_encoder;
     
     //Definición de factores 
-    Q1=1-N*Ts; //Cálculo del parámetro Q1
-    Q2=kd_m1*N;  //Cálculo del parámetro Q2
+    // Q1=1-N*Ts; //Cálculo del parámetro Q1
+    // Q2=kd_m1*N;  //Cálculo del parámetro Q2
  
   if (error>=rangoError || error<=(rangoError*(-1))) // Si el error es menor
   {
@@ -177,12 +178,25 @@ float Robot_PID_m1(float pos_ref,float pos_encoder,float rangoError)
     P=kp_m1*(b*pos_ref-pos_encoder);
 
   //Acción derivativa 
-    D=Q1*Dprevio_m1+Q2*c*(pos_ref-pos_ref_previa_m0)-Q2*(pos_encoder-pos_encoder_previa_m0);
-    Dprevio_m1=D;
+    // D=Q1*Dprevio_m1+Q2*c*(pos_ref-pos_ref_previa_m0)-Q2*(pos_encoder-pos_encoder_previa_m0);
+    // Dprevio_m1=D;
+
+    D=kd_m1*((error-_error_ant)/Ts);
 
   //Consigna de control
 
+
+  if (((P+D)<0 && P>0) || ((P+D)>0 && P<0))
+  {
+    u=0;
+  } 
+  else 
+  {
     u=P+I+D;
+  }
+    
+    Serial.printf(">P: %f\n", P);     //envía la posición en grados al terminal serie
+    Serial.printf(">D: %f\n", D);     //envía la posición en grados al terminal serie
     
 
     if (u>satpos) //Si la consigna es mayor que la saturación se pone a 1.
@@ -209,6 +223,8 @@ float Robot_PID_m1(float pos_ref,float pos_encoder,float rangoError)
   //Actualización de variables 
   pos_ref_previa_m1=pos_ref; //Actualizar posicion de referencia previ del paso anterior
   pos_encoder_previa_m1=pos_encoder; //Actualizar posición del encoder previa del paso anterior
+  _error_ant=error;
+
   u_pwm=u/245;
   }
   else
@@ -448,7 +464,7 @@ while (Serial.available()>0)    // Si hay datos disponibles por el puerto serie:
         // Cálculo de variable de control de motores
 
       u_PID_M0=Robot_PID_m0(_Pos_ref[0],ang_0,3); //Primer parámetro Posición de referencia; Segundo parámetro posición actual del encoder; Tercer parámetro: grados de margen para error
-      u_PID_M1=Robot_PID_m1(_Pos_ref[1],ang_1,3);
+      u_PID_M1=Robot_PID_m1(_Pos_ref[1],ang_1,2);
       u_PID_M2=Robot_PID_m2(_Pos_ref[2],ang_2,2);
 
     }    

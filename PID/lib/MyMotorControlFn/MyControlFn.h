@@ -9,11 +9,11 @@
 #define LIM_SUP_E0 230
 #define LIM_INF_E0 110 
 
-#define LIM_SUP_E1 105
-#define LIM_INF_E1 30
+#define LIM_SUP_E1 115
+#define LIM_INF_E1 50
 
 #define LIM_SUP_E2 230
-#define LIM_INF_E2 180
+#define LIM_INF_E2 170
 
 /// Tiempo de muestreo en segundos
 
