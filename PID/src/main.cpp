@@ -35,7 +35,7 @@ uint32_t _lastTimeSample=0;
 uint32_t _cont_serial=0,_stop=0, _linea=0;
 float _error_ant=0;
 float _pos_actual_xyz[3]={0,0,0}, ang_bhcm[4]={0, 0, 0, 0};
-uint32_t _t_wait_lin=0, _cont_lin=0, _test_lin=0;
+uint32_t _t_wait_lin=0, _cont_lin=0, _test_lin=0, _cont_pasos=0;
 
 
 float max_2Val (float val_1, float val_2)   //  Función de cálculo del máximo entre dos valores:
@@ -120,15 +120,20 @@ void cin_Inversa (float x, float y, float z)    // Función de cálculo de la ci
 void FnLinea()
 {
   float pos0_xyz[3]={0,350,0}; //posicion inicial
-  float pos1_xyz[3]={0,400,-50}; //posicion final
-  cin_Inversa(pos0_xyz[0],pos0_xyz[1],pos0_xyz[2]);
-  _Pos_ref[0]=ang_bhcm[0];
-  _Pos_ref[1]=ang_bhcm[1];
-  _Pos_ref[2]=ang_bhcm[2];
+  float pos1_xyz[3]={0,400,0}; //posicion final
+  
   static uint32_t lastTimeSent=0;
 
-  if (_cont_lin==0)
+
+  if (_cont_lin==0) // SOLO ENTRA LA PRIMERA VEZ
   {
+    cin_Inversa(pos0_xyz[0],pos0_xyz[1],pos0_xyz[2]);
+    _Pos_ref[0]=ang_bhcm[0];
+    _Pos_ref[1]=ang_bhcm[1];
+    _Pos_ref[2]=ang_bhcm[2];
+    _pos_actual_xyz[0]=pos0_xyz[0];
+  _pos_actual_xyz[0]=pos0_xyz[0];
+  _pos_actual_xyz[0]=pos0_xyz[0];
     _t_wait_lin=millis();
     _cont_lin++;
   }
@@ -137,8 +142,43 @@ void FnLinea()
     _test_lin++;
     Serial.printf(">test lin: %d\n", _test_lin);     //envía la posición en grados al terminal serie
     Serial.println("Se cumplio 2 seg");
-    _cont_lin=0;
-    _linea=0;
+    
+    
+    int pasos=0;
+    float paso=5, delta_x=0,delta_y=0; // mm
+    pasos=abs((pos1_xyz[0]-pos0_xyz[0])/paso);    // Cálculo del número de pasos (basado en eje x para garantizar la fiabilidad de rectas diagonales).
+
+    if (pasos==0)                   // Si el movimiento se produce exclusivamente en el eje y, el paso se basa en el eje y.
+        pasos=abs((pos1_xyz[1]-pos0_xyz[1])/paso);
+
+    delta_x=((pos1_xyz[0]-pos0_xyz[0]))/pasos;  // Cálculo de la distancia a recorrer por paso en el eje x.
+    delta_y=(pos1_xyz[1]-pos0_xyz[1])/pasos;  // Cálculo de la distancia a recorrer por paso en el eje y.
+
+    if(_cont_pasos<pasos)
+    {
+      _cont_pasos++;
+      _pos_actual_xyz[0]=_pos_actual_xyz[0]+delta_x*_cont_pasos;  // Suma de la distancia objetivo a la posición x actual.
+      _pos_actual_xyz[1]=_pos_actual_xyz[1]+delta_y*_cont_pasos;  // Suma de la distancia objetivo a la posición y actual.
+
+      cin_Inversa(_pos_actual_xyz[0],_pos_actual_xyz[1],0);  // Llamada a función del cálculo de la cinemática inversa.
+        _Pos_ref[0]=ang_bhcm[0];
+        _Pos_ref[1]=ang_bhcm[1];
+        _Pos_ref[2]=ang_bhcm[2];  
+    }
+    else
+    {
+      _cont_pasos=0;
+      _linea=0;
+      _cont_lin=0;
+    }
+
+    Serial.printf(">Pos ref base: %f\n", _Pos_ref[0]);     //envía la posición en grados al terminal serie
+    Serial.printf(">Pos ref hombro: %f\n", _Pos_ref[1]);     //envía la posición en grados al terminal serie
+    Serial.printf(">Pos ref codo: %f\n", _Pos_ref[2]);     //envía la posición en grados al terminal serie
+    
+
+
+
   }
 
 }
