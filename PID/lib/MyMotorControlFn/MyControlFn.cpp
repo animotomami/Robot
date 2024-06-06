@@ -14,7 +14,7 @@ float linPWM(float valPWM, int numMot)
     float upLimit_fwd[3] = {0.8,1, 0.8};
     float lowLimit_fwd[3] = {0.4,0.75, 0.45};
 
-    float upLimit_bck[3] = {-0.8,-0.4, -0.8};
+    float upLimit_bck[3] = {-0.8,-0.35, -0.8};
     float lowLimit_bck[3] = {-0.4,-0.35,-0.5};
 
 if (valPWM>min_fwd)

@@ -10,6 +10,8 @@
 
 #define SERVO_PIN 17 // Se define el pin del servo
 
+float L1=250, L2=250, L3=45, L_pen=70; // HACER DEFINES
+
 //Se crea el objeto
 Servo servo_pinza;
 
@@ -23,14 +25,123 @@ void cerrar_pinza()
   servo_pinza.write(ANG_MIN);
 }
 
+
 using namespace std;
 
 //Variables globales
 float duty_vec[3]={0,0,0}; //Array de duties. Pueden tomar valor -1 a 1.
 float _Pos_ref[3]={170,70,200}; //Posición de referencia en grados
 uint32_t _lastTimeSample=0;
-uint32_t _cont_serial=0,_stop=0;
+uint32_t _cont_serial=0,_stop=0, _linea=0;
 float _error_ant=0;
+float _pos_actual_xyz[3]={0,0,0}, ang_bhcm[4]={0, 0, 0, 0};
+uint32_t _t_wait_lin=0, _cont_lin=0, _test_lin=0;
+
+
+float max_2Val (float val_1, float val_2)   //  Función de cálculo del máximo entre dos valores:
+    //      - Entradas: (float) val_1, val_2: valores entre los que se calcula el máximo.
+    //      - Salidas: (float) valor máximo obtenido (y aviso de error si ambos son iguales).
+{
+    float max=0;    // Declaración de variables.
+
+    if (val_1>val_2)        // Si el valor 1 es mayor que el 2:
+        max=val_1;          //      El valor 1 es máximo.
+
+    else if (val_1<val_2)   // Si el valor 2 es mayor que el 1:
+        max=val_2;          //      El valor 2 es máximo.
+
+    else    // Si no se cumple ninguna condición:
+    {
+        std::cout << "Ambos valores son iguales." << std::endl;     // Envío de mensaje de igualdad.
+        max=val_2;                                                  // Se establece el valor como máximo igualmente.
+    }
+
+    return max;     // Se devuelve el valor obtenido.
+}
+
+float convAng_RadToDeg (float angRad)   // Función de conversión de ángulos en radianes a decimales:
+    //      - Entradas: (float) angRad: Valor angular en radianes a convertir.
+    //      - Salidas: (float) angDeg: Valor angular convertido a Grados Decimales.
+{
+    float angDeg=0;                 // Declaración de variables.
+    angDeg=angRad*360/(2*3.1416);   // Fórmula de conversión a decimales.
+    return angDeg;                  // Devuelve el ángulo calculado en Grados Decimales.
+}
+
+
+void cin_Inversa (float x, float y, float z)    // Función de cálculo de la cinemática inversa de un Robot Tipo Braccio de TinkerKit.
+    // Entra el valor de la posición de la pluma en ejes x, y y z y calcula los ángulos que deben adquirir
+    // los servos del brazo para alcanzar la posición manteniendo la pluma perpendicular al plano de dibujo.
+    //      - Entradas: (float) x, y, z: Posiciones en ejes x, y y z deseadas de la pluma.
+    //      - Salidas: Modifica sobre la variable global de ángulos de servo "ang_bhcm[4]".
+{
+    float t, a, b, c, zP1_plus, zP1_minus, zP1;     // Declaración de variables.
+    float P1[2]={0,0}, P2[2]={0,0}, P3[2]={0,0};
+
+    // Nota: Se trabaja en el plano w-z, que contiene las articulaciones del hombro, codo y muñeca, ignorando el giro de la base.
+    P3[0]=z+L_pen;
+    P3[1]=sqrt(pow(x,2)+pow(y,2));
+
+    P2[0]=P3[0]+L3;
+    P2[1]=P3[1];
+
+    // RESOLUCIÖN DE LA ECUACIÖN CUADRÁTICA PARA LA POSICIÓN DEL CODO:
+    t=-pow(L2,2)+pow(L1,2)+pow(P2[1],2)+pow(P2[0],2);   // Cálculo de la constante t.
+    a=4*pow(P2[0],2)+(4*pow(P2[1],2));                  // Cálculo del coeficiente a.
+    b=-4*t*P2[0];                                       // Cálculo del coeficiente b.
+    c=(-4*pow(P2[1],2)*pow(L1,2))+(pow(t,2));           // Cálculo del coeficiente c.
+
+    zP1_plus=(-b+sqrt(pow(b,2)-(4*a*c)))/(2*a);     // Cálculo de la solución 01 de la ecuación.
+    zP1_minus=(-b-sqrt(pow(b,2)-(4*a*c)))/(2*a);    // Cálculo de la solución 02 de la ecuación.
+
+    zP1=max_2Val(zP1_minus,zP1_plus);                       // LLamada a función de selección de la mayor solución disponible.
+
+    P1[0]=zP1;
+    P1[1]=sqrt((L1*L1)-(zP1*zP1));
+
+    // CÁLCULOS DE LOS ÁNGULOS (radianes, en Referencia Robot), (almacenamiento en variable global):
+    ang_bhcm[0]=asin(x/P3[1]);                                                        // Cálculo del ángulo de la base.
+    ang_bhcm[1]=atan2(P1[1],P1[0]);                                                   // Cálculo del ángulo del hombro.
+    ang_bhcm[2]=-(atan2((P2[0]-P1[0]),(P2[1]-P1[1]))-((3.1416/2)-ang_bhcm[1]));       // Cálculo del ángulo del codo.
+    ang_bhcm[3]=acos((P3[0]-P2[0])/L3)-ang_bhcm[1]-ang_bhcm[2];                       // Cálculo del ángulo de la base.
+
+    // BUCLE DE COONVERSIÓN A GRADOS DECIMALES:
+    for (int j=0;j<4;j++)
+    {
+        ang_bhcm[j]=convAng_RadToDeg(ang_bhcm[j]);   //  Llamada a función de conversión de radianes a grados, (sobreescritura de variable global).
+    }
+
+    // NORMALIZADO:
+    ang_bhcm[0]=180+ang_bhcm[0];
+    ang_bhcm[1]=135-ang_bhcm[1];
+    ang_bhcm[2]=110+ang_bhcm[2];
+}
+
+void FnLinea()
+{
+  float pos0_xyz[3]={0,350,0}; //posicion inicial
+  float pos1_xyz[3]={0,400,-50}; //posicion final
+  cin_Inversa(pos0_xyz[0],pos0_xyz[1],pos0_xyz[2]);
+  _Pos_ref[0]=ang_bhcm[0];
+  _Pos_ref[1]=ang_bhcm[1];
+  _Pos_ref[2]=ang_bhcm[2];
+  static uint32_t lastTimeSent=0;
+
+  if (_cont_lin==0)
+  {
+    _t_wait_lin=millis();
+    _cont_lin++;
+  }
+
+  if (millis()-_t_wait_lin > 2000) {
+    _test_lin++;
+    Serial.printf(">test lin: %d\n", _test_lin);     //envía la posición en grados al terminal serie
+    Serial.println("Se cumplio 2 seg");
+    _cont_lin=0;
+    _linea=0;
+  }
+
+}
 
 
 /////////////////////Declaración de parámetros del PID ////////////////
@@ -211,7 +322,7 @@ float Robot_PID_m1(float pos_ref,float pos_encoder,float rangoError)
   } 
   else 
   {
-    u=P+I+D;
+    u=P+I;
   }
     
     Serial.printf(">P: %f\n", P);     //envía la posición en grados al terminal serie
@@ -431,6 +542,10 @@ while (Serial.available()>0)    // Si hay datos disponibles por el puerto serie:
         {
           cerrar_pinza();
         }
+        else if(input.startsWith("LINEA"))
+        {
+          _linea=1;
+        }
       }
 
 // while (Serial.available() > 0)
@@ -492,6 +607,10 @@ while (Serial.available()>0)    // Si hay datos disponibles por el puerto serie:
     else
     {
         // Cálculo de variable de control de motores
+      if(_linea==1) // si llamamos por serial el comando LINEA
+      {
+        FnLinea(); // La funcion cambia las referencias 
+      }
 
       u_PID_M0=Robot_PID_m0(_Pos_ref[0],ang_0,3); //Primer parámetro Posición de referencia; Segundo parámetro posición actual del encoder; Tercer parámetro: grados de margen para error
       u_PID_M1=Robot_PID_m1(_Pos_ref[1],ang_1,2);
