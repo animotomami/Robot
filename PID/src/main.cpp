@@ -382,6 +382,7 @@ float Robot_PID_m1(float pos_ref,float pos_encoder,float rangoError)
       satur_m1=0; 
     }
 
+    // Si se actualiza el set point o si se pasa de STOP a GO
     if (pos_ref!=pos_ref_previa_m1 || _cont_serial==0)
     {
       Iprevio_m1=0;
@@ -503,31 +504,29 @@ void ARDUINO_ISR_ATTR InterrrupTimer()
 void setup()
 { 
   // Timer para tiempo de muestreo
+
   timer = timerBegin(1000000); // 1 Mhz de resolución (us)
   timerAttachInterrupt(timer, &InterrrupTimer);
   timerAlarm(timer, SAMPLE_TIME*1000000,true,0); // Set time en us
 
-  
+  // Inicializaciones
+
   Serial.begin(115200);  
-  Serial.flush();  //Espera a que termina la transmisión serie anterior 
-  delay(200);
   encoder_init();
   pwm_init();
-
   pinza_init(SERVO_PIN);
 }
 
 
 void loop() {
+  // Declaracion de variables locales
+  //float ang_0=0, ang_1=0, ang_2=0;
+  float ang_encoder[3]={0,0,0};  // Ángulos leidos de encoder
+  //float u_PID_M0=0, u_PID_M1=0, u_PID_M2=0; //Variable de control del PWM
+  float u_PID_M[3]={0,0,0};  // Variable de control de pwm
 
-  float ang_0=0, ang_1=0, ang_2=0;
-  float u_PID_M0=0, u_PID_M1=0, u_PID_M2=0; //Variable de control del PWM
-
-// Cambiar set point por serial
-
-String refPosition;
-
-while (Serial.available()>0)    // Si hay datos disponibles por el puerto serie:
+  // Cambiar set point por serial
+  while (Serial.available()>0)    // Si hay datos disponibles por el puerto serie:
       {
         _cont_serial++;
         String input=Serial.readString();
@@ -584,20 +583,21 @@ while (Serial.available()>0)    // Si hay datos disponibles por el puerto serie:
       }
 
 
-  // Se ejecuta cada entrada a interrupción
+  // Se ejecuta cada entrada a interrupción:
 
   if(has_expired)
   {
-    Serial.print("interrupcion");
-    ang_0=encoder0_read(); //Introducir valor en el código si no hay encoder para hacer pruebas
-    ang_1=encoder1_read();
-    ang_2=encoder2_read();
+    // Lectura de encoders
+    ang_encoder[0]=encoder0_read(); 
+    ang_encoder[1]=encoder1_read();
+    ang_encoder[2]=encoder2_read();
 
-    if ((ang_0>=LIM_SUP_E0 || ang_0<=LIM_INF_E0) || (ang_1>=LIM_SUP_E1 || ang_1<=LIM_INF_E1) || (ang_2>=LIM_SUP_E2 || ang_2<=LIM_INF_E2) || _cont_serial==0 || _stop==1)
+    // duty=0 si: Encoder lee fuera de rangos, se teclea STOP o si no se ha escrito nada por el serial desde el incio del programa
+    if ((ang_encoder[0]>=LIM_SUP_E0 || ang_encoder[0]<=LIM_INF_E0) || (ang_encoder[1]>=LIM_SUP_E1 || ang_encoder[1]<=LIM_INF_E1) || (ang_encoder[2]>=LIM_SUP_E2 || ang_encoder[2]<=LIM_INF_E2) || _cont_serial==0 || _stop==1)
     {
-        u_PID_M0=0; //Primer parámetro Posición de referencia; Segundo parámetro posición actual del encoder; Tercer parámetro: grados de margen para error
-        u_PID_M1=0;
-        u_PID_M2=0;
+        u_PID_M[0]=0; //Primer parámetro Posición de referencia; Segundo parámetro posición actual del encoder; Tercer parámetro: grados de margen para error
+        u_PID_M[1]=0;
+        u_PID_M[2]=0;
         Iprevio_m2=0;
     }
     else
@@ -608,16 +608,16 @@ while (Serial.available()>0)    // Si hay datos disponibles por el puerto serie:
         FnLinea(); // La funcion cambia las referencias 
       }
 
-      u_PID_M0=Robot_PID_m0(_Pos_ref[0],ang_0,3); //Primer parámetro Posición de referencia; Segundo parámetro posición actual del encoder; Tercer parámetro: grados de margen para error
-      u_PID_M1=Robot_PID_m1(_Pos_ref[1],ang_1,2);
-      u_PID_M2=Robot_PID_m2(_Pos_ref[2],ang_2,2);
+      u_PID_M[0]=Robot_PID_m0(_Pos_ref[0],ang_encoder[0],3); //Primer parámetro Posición de referencia; Segundo parámetro posición actual del encoder; Tercer parámetro: grados de margen para error
+      u_PID_M[1]=Robot_PID_m1(_Pos_ref[1],ang_encoder[1],2);
+      u_PID_M[2]=Robot_PID_m2(_Pos_ref[2],ang_encoder[2],2);
 
     }    
     // Aplica pwm a motores
 
-    duty_vec[0]=linPWM(u_PID_M0, 0);
-    duty_vec[1]=linPWM(u_PID_M1, 1);
-    duty_vec[2]=linPWM(u_PID_M2, 2);
+    duty_vec[0]=linPWM(u_PID_M[0], 0);
+    duty_vec[1]=linPWM(u_PID_M[1], 1);
+    duty_vec[2]=linPWM(u_PID_M[2], 2);
     set_comp_tres_motores(duty_vec);
 
     // Imprime info
@@ -627,21 +627,21 @@ while (Serial.available()>0)    // Si hay datos disponibles por el puerto serie:
     Serial.printf(">Set point M1: %f\n", _Pos_ref[1]);     //envía la posición en grados al terminal serie
     Serial.printf(">Set point M2: %f\n", _Pos_ref[2]);     //envía la posición en grados al terminal serie
     //Serial.print("Ángulo encoder M0: "); 
-    Serial.printf(">Ángulo encoder M0: %f\n", ang_0);     //envía la posición en grados al terminal serie
+    Serial.printf(">Ángulo encoder M0: %f\n", ang_encoder[0]);     //envía la posición en grados al terminal serie
     // Serial.println(ang_0);     //envía la posición en grados al terminal serie
 
     Serial.print(">Variable de control M0: ");
     Serial.println(duty_vec[0]);
 
     // Serial.print("Ángulo encoder M1: "); 
-    Serial.printf(">Ángulo encoder M1: %f\n", ang_1);     //envía la posición en grados al terminal serie
+    Serial.printf(">Ángulo encoder M1: %f\n", ang_encoder[1]);     //envía la posición en grados al terminal serie
     // Serial.println(ang_1);     //envía la posición en grados al terminal serie
 
     Serial.print(">Variable de control M1: ");
     Serial.println(duty_vec[1]);
 
     // Serial.print("Ángulo encoder M2: "); 
-    Serial.printf(">Ángulo encoder M2: %f\n", ang_2);     //envía la posición en grados al terminal serie
+    Serial.printf(">Ángulo encoder M2: %f\n", ang_encoder[2]);     //envía la posición en grados al terminal serie
     // Serial.println(ang_2);     //envía la posición en grados al terminal serie
 
     Serial.print(">Variable de control M2: ");
