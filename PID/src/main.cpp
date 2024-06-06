@@ -132,8 +132,8 @@ void FnLinea()
     _Pos_ref[1]=ang_bhcm[1];
     _Pos_ref[2]=ang_bhcm[2];
     _pos_actual_xyz[0]=pos0_xyz[0];
-  _pos_actual_xyz[0]=pos0_xyz[0];
-  _pos_actual_xyz[0]=pos0_xyz[0];
+    _pos_actual_xyz[0]=pos0_xyz[0];
+    _pos_actual_xyz[0]=pos0_xyz[0];
     _t_wait_lin=millis();
     _cont_lin++;
   }
