@@ -2,28 +2,28 @@
 #include "MyControlFn.h"
 #include "MyEncoderFn.h"
 #include "MyPwmFn.h"
-//#include "PinzaFn.h"
+#include "PinzaFn.h"
 #include <ESP32Servo.h>
 
-#define ANG_MAX 90 // Ángulo máximo que puede girar el servo
-#define ANG_MIN 0 // Ángulo mínimo que puede girar el servo
+// #define ANG_MAX 90 // Ángulo máximo que puede girar el servo
+// #define ANG_MIN 0 // Ángulo mínimo que puede girar el servo
 
-#define SERVO_PIN 17 // Se define el pin del servo
+// #define SERVO_PIN 17 // Se define el pin del servo
 
 float L1=250, L2=250, L3=45, L_pen=70; // HACER DEFINES
 
-//Se crea el objeto
-Servo servo_pinza;
+// //Se crea el objeto
+// Servo servo_pinza;
 
-void abrir_pinza()
-{
-  servo_pinza.write(ANG_MAX);
-}
+// void abrir_pinza()
+// {
+//   servo_pinza.write(ANG_MAX);
+// }
 
-void cerrar_pinza()
-{
-  servo_pinza.write(ANG_MIN);
-}
+// void cerrar_pinza()
+// {
+//   servo_pinza.write(ANG_MIN);
+// }
 
 
 using namespace std;
@@ -146,6 +146,7 @@ void FnLinea()
     
     int pasos=0;
     float paso=5, delta_x=0,delta_y=0; // mm
+    
     pasos=abs((pos1_xyz[0]-pos0_xyz[0])/paso);    // Cálculo del número de pasos (basado en eje x para garantizar la fiabilidad de rectas diagonales).
 
     if (pasos==0)                   // Si el movimiento se produce exclusivamente en el eje y, el paso se basa en el eje y.
@@ -175,10 +176,6 @@ void FnLinea()
     Serial.printf(">Pos ref base: %f\n", _Pos_ref[0]);     //envía la posición en grados al terminal serie
     Serial.printf(">Pos ref hombro: %f\n", _Pos_ref[1]);     //envía la posición en grados al terminal serie
     Serial.printf(">Pos ref codo: %f\n", _Pos_ref[2]);     //envía la posición en grados al terminal serie
-    
-
-
-
   }
 
 }
@@ -501,7 +498,8 @@ void ARDUINO_ISR_ATTR InterrrupTimer()
   has_expired=true;
 }
 
-//********************** MAIN **********************
+
+
 void setup()
 { 
   // Timer para tiempo de muestreo
@@ -509,17 +507,14 @@ void setup()
   timerAttachInterrupt(timer, &InterrrupTimer);
   timerAlarm(timer, SAMPLE_TIME*1000000,true,0); // Set time en us
 
-  encoder_init();
+  
   Serial.begin(115200);  
-  Serial.println("Comienzo de programa"); 
   Serial.flush();  //Espera a que termina la transmisión serie anterior 
   delay(200);
-
+  encoder_init();
   pwm_init();
-  delay(500); 
 
-  // inicialización de la pinza
-  servo_pinza.attach(SERVO_PIN);
+  pinza_init(SERVO_PIN);
 }
 
 
@@ -588,45 +583,6 @@ while (Serial.available()>0)    // Si hay datos disponibles por el puerto serie:
         }
       }
 
-// while (Serial.available() > 0)
-//   {
-//     refPosition = Serial.readString();
-//     refPosition.trim();
-//     int j=0;
-//     int coma_pos_ant=0;
-//     for(int i=0;i<3;i++)
-//     {
-//       Serial.printf(">J: ",j);
-      
-//       int coma_pos=refPosition.indexOf(",",j);
-//       refPosition=refPosition.substring(j, coma_pos);
-
-//       float Pos_ref_prelim = refPosition.toFloat();      // pass string to float value for control
-//       int lim_sup;
-//       int lim_inf;
-//       if(i==0)
-//       {
-//         lim_sup=LIM_SUP_E0;
-//         lim_inf=LIM_INF_E0;
-//       }else if(i==1)
-//       {
-//         lim_sup=LIM_SUP_E1;
-//         lim_inf=LIM_INF_E1;
-//       }else if (i==2)
-//       {
-//         lim_sup=LIM_SUP_E2;
-//         lim_inf=LIM_INF_E2;
-//       }
-
-//       if (Pos_ref_prelim>= lim_inf && Pos_ref_prelim <= lim_sup)
-//       {
-//           _Pos_ref[i]=Pos_ref_prelim;
-//       }
-//     j=coma_pos+1;
-//     }
-
-    
-//   }
 
   // Se ejecuta cada entrada a interrupción
 

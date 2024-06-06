@@ -3,6 +3,13 @@
 
 #define SERVO_PIN 17 // Se define el pin del servo
 
+#include <ESP32Servo.h>
+
+//Se crea el objeto
+extern Servo servo_pinza;
+
+void pinza_init(int servo_pin);
+
 void abrir_pinza();
 
 void cerrar_pinza();
