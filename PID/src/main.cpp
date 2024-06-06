@@ -2,6 +2,26 @@
 #include "MyControlFn.h"
 #include "MyEncoderFn.h"
 #include "MyPwmFn.h"
+//#include "PinzaFn.h"
+#include <ESP32Servo.h>
+
+#define ANG_MAX 90 // Ángulo máximo que puede girar el servo
+#define ANG_MIN 0 // Ángulo mínimo que puede girar el servo
+
+#define SERVO_PIN 17 // Se define el pin del servo
+
+//Se crea el objeto
+Servo servo_pinza;
+
+void abrir_pinza()
+{
+  servo_pinza.write(ANG_MAX);
+}
+
+void cerrar_pinza()
+{
+  servo_pinza.write(ANG_MIN);
+}
 
 using namespace std;
 
@@ -346,6 +366,9 @@ void setup()
 
   pwm_init();
   delay(500); 
+
+  // inicialización de la pinza
+  servo_pinza.attach(SERVO_PIN);
 }
 
 
@@ -399,6 +422,14 @@ while (Serial.available()>0)    // Si hay datos disponibles por el puerto serie:
         else if(input.startsWith("GO"))
         {
           _stop=0;
+        }
+        else if (input.startsWith("ABRIR"))
+        {
+          abrir_pinza();
+        }
+        else if(input.startsWith("CERRAR"))
+        {
+          cerrar_pinza();
         }
       }
 
