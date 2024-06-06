@@ -172,7 +172,7 @@ float ki_m0=2; //Constante Integral
 float kp_m2=1.5; //Constante Proporcional
 float ki_m2=1.2; //Constante Integral
 float kp_m1=1.8; //Constante Proporcional
-float ki_m1=1.2; //Constante Integral
+float ki_m1=0; //Constante Integral
 float kd_m1=0.2; //Constante Derivativa
 
 //Variables de memoria
@@ -316,15 +316,15 @@ float Robot_PID_m1(float pos_ref,float pos_encoder,float rangoError)
 
   //Consigna de control
 
-  if (((P+D)<0 && P>0) || ((P+D)>0 && P<0))
-  {
-    u=0;
-  } 
-  else 
-  {
-    u=P+I;
-  }
-    
+  // if (((P+D)<0 && P>0) || ((P+D)>0 && P<0))
+  // {
+  //   u=0;
+  // } 
+  // else 
+  // {
+  //   u=P+I;
+  // }
+    u=P;
     Serial.printf(">P: %f\n", P);     //envía la posición en grados al terminal serie
     Serial.printf(">D: %f\n", D);     //envía la posición en grados al terminal serie
     
