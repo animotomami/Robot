@@ -30,6 +30,13 @@ float satur_m0=0; //Saturacion para integrar el anti-windup m0
 float satur_m1=0; //Saturacion para integrar el anti-windup m1
 float satur_m2=0;  //Saturacion para integrar el anti-windup m2
 
+float pos_ref_previa_m0;
+float pos_ref_previa_m1;
+float pos_ref_previa_m2;
+float pos_encoder_previa_m0;
+float pos_encoder_previa_m1;
+float pos_encoder_previa_m2;
+
 
 uint32_t _cont_serial=0,_stop=0, _linea=0;
 float _error_ant=0; // *para D
@@ -121,11 +128,8 @@ void cin_Inversa (float x, float y, float z)
     ang_bhcm[2]=110+ang_bhcm[2];
 }
 
-void FnLinea() // Posicion inicial_0, Posicion final_1
+void FnLinea(float pos0_xyz[],float pos1_xyz[]) // Posicion inicial_0, Posicion final_1
 {
-  float pos0_xyz[3]={0,350,0}; //posicion inicial   ESTO SE REEMPLAZA POR COORDENADAS QUE DIGA LA TRAYECTORIA
-  float pos1_xyz[3]={0,400,0}; //posicion final
-
   // Declara variables locales
   int pasos=0;
   float delta_x=0,delta_y=0; // mm
@@ -136,10 +140,7 @@ void FnLinea() // Posicion inicial_0, Posicion final_1
     _Pos_ref[0]=ang_bhcm[0];
     _Pos_ref[1]=ang_bhcm[1];
     _Pos_ref[2]=ang_bhcm[2];
-     Serial.printf(">ANG0: %f\n", ang_bhcm[0]);     //envía la posición en grados al terminal serie
-     Serial.printf(">ANG1: %f\n", ang_bhcm[1]);     //envía la posición en grados al terminal serie
-     Serial.printf(">ANG2: %f\n", ang_bhcm[2]);     //envía la posición en grados al terminal serie
-    
+     
     _pos_actual_xyz[0]=pos0_xyz[0];
     _pos_actual_xyz[1]=pos0_xyz[1];
     _pos_actual_xyz[2]=pos0_xyz[2];
@@ -149,9 +150,7 @@ void FnLinea() // Posicion inicial_0, Posicion final_1
 
   if (millis()-_t_wait_lin > 2000) {
     
-    Serial.println("Se cumplio 2 seg");
-        
-    
+
     pasos=abs((pos1_xyz[0]-pos0_xyz[0])/STEP_SIZE);    // Cálculo del número de pasos (basado en eje x para garantizar la fiabilidad de rectas diagonales).
 
     if (pasos==0) {                // Si el movimiento se produce exclusivamente en el eje y, el paso se basa en el eje y.
@@ -195,55 +194,7 @@ void FnLinea() // Posicion inicial_0, Posicion final_1
 }
 
 
-/////////////////////Declaración de parámetros del PID ////////////////
-
-// float N=1; //Coeficiente del filtro para la acción diferencial 
-// float c=2.5; //Peso del punto de funcionamiento en el término de la acción diferencial
-// float Ts=SAMPLE_TIME; //Periodo de muestreo
-
-// // float satpos=245; //Valor de la saturación positiva del control. 
-// // float satneg=-245; //Valor de la saturación negativa del control. 
-
-// float Q1;
-// float Q2;
-// //Declaracion de variables
-
-// float Dprevio_m1=0; //Valor de la parte derivativa previo
-// float Iprevio_m0=0;  //Valor de la parte integral previa m0
-// float Iprevio_m1=0;  //Valor de la parte integral previa m1
-// float Iprevio_m2=0;  //Valor de la parte integral previa m1
-// float satur_m0=0; //Saturacion para integrar el anti-windup m0
-// float satur_m1=0; //Saturacion para integrar el anti-windup m1
-// float satur_m2=0;  //Valor de la parte integral previa m1
-
-//Constantes del PID
-// float kp_m0=6; //Constante Proporcional
-// float ki_m0=2; //Constante Integral
-// float kp_m2=1.5; //Constante Proporcional
-// float ki_m2=1.2; //Constante Integral
-// //float kp_m1=1.8; //Constante Proporcional
-// float kp_m1=0.5; //Constante Proporcional
-// float ki_m1=0; //Constante Integral
-// float kd_m1=0.001; //Constante Derivativa
-
-// float kp_m1_subida=0.32;
-// float kp_m1_bajada=0.05;
-
-// float kd_m1_subida=0.002;
-// float kd_m1_bajada=0.0015;
-
-//Variables de memoria
-
-float pos_ref_previa_m0;
-float pos_ref_previa_m1;
-float pos_ref_previa_m2;
-float pos_encoder_previa_m0;
-float pos_encoder_previa_m1;
-float pos_encoder_previa_m2;
-
-
-
-float Robot_PID_m0(float pos_ref,float pos_encoder,float rangoError)
+float Control_motor(float pos_ref,float pos_encoder,float rangoError, int tipo_control, float kp, float ki)
 {
     //Declaración de la variable de control
 
@@ -254,20 +205,23 @@ float Robot_PID_m0(float pos_ref,float pos_encoder,float rangoError)
 
     float P;
     float I;
-    // float D;   
 
     float incrI;
     float error = pos_ref-pos_encoder;
-    
-    //Definición de factores 
-    // Q1=1-N*Ts; //Cálculo del parámetro Q1
-    // Q2=kd*N;  //Cálculo del parámetro Q2
+
  
   if (error>=rangoError || error<=(rangoError*(-1))) // Si el error es menor
   {
-    //Acción integral 
-    incrI=KI_M0*Ts*(pos_ref_previa_m0-pos_encoder_previa_m0); // Convertir a almacenamiento de error (IMPORTANTE)
-  //Antiwind‐up 
+    
+    ////// Acción integral 
+    incrI=ki*Ts*(pos_ref_previa_m0-pos_encoder_previa_m0); // Convertir a almacenamiento de error (IMPORTANTE)
+
+    if (pos_ref!=pos_ref_previa_m0 || _cont_serial==0) // Si se cambia de referencia el acumulado se hace 0
+    {
+      Iprevio_m0=0;
+    }
+    
+    //Antiwind‐up 
     if (satur_m0*incrI>0)
     {
       I=Iprevio_m0;
@@ -277,17 +231,19 @@ float Robot_PID_m0(float pos_ref,float pos_encoder,float rangoError)
       I=Iprevio_m0+incrI; 
     }
 
-   
-  //Acción proporcional 
-    P=KP_M0*(pos_ref-pos_encoder);
+    /////// Acción proporcional 
+    P=kp*(pos_ref-pos_encoder);
 
-  //Acción derivativa 
-    // D=Q1*Dprevio+Q2*c*(pos_ref-pos_ref_previa_m0)-Q2*(pos_encoder-pos_encoder_previa_m0);
-    // Dprevio=D;
 
-  //Consigna de control
+    ////// Consigna de control
 
-    u=P+I;
+    switch (tipo_control)
+    {
+      case CONTROL_P:
+      u=P;
+      case CONTROL_PI:
+      u=P+I;
+    }
     
     if (u>SATPOS) //Si la consigna es mayor que la saturación se pone a 1.
     {  
@@ -305,26 +261,21 @@ float Robot_PID_m0(float pos_ref,float pos_encoder,float rangoError)
       satur_m0=0; 
     }
     
-    if (pos_ref!=pos_ref_previa_m0 || _cont_serial==0)
-    {
-      Iprevio_m0=0;
-    }
-
-  //Actualización de variables 
-  pos_ref_previa_m0=pos_ref; //Actualizar posicion de referencia previ del paso anterior
-  pos_encoder_previa_m0=pos_encoder; //Actualizar posición del encoder previa del paso anterior
-  u_pwm=u/245;
+    //Actualización de variables 
+    
+    pos_ref_previa_m0=pos_ref; //Actualizar posicion de referencia previ del paso anterior
+    pos_encoder_previa_m0=pos_encoder; //Actualizar posición del encoder previa del paso anterior
+    u_pwm=u/245;
   }
   else
   {
     u_pwm=0;
   }
-  
-
-return u_pwm;
+    
+  return u_pwm;
 }
 
-float Robot_PID_m1(float pos_ref,float pos_encoder,float rangoError)
+float Control_motor_sb(float pos_ref,float pos_encoder,float rangoError) // Control que distingue entre desplazamiento de subida y bajada
 {
     //Declaración de la variable de control
 
@@ -339,16 +290,12 @@ float Robot_PID_m1(float pos_ref,float pos_encoder,float rangoError)
 
     float incrI;
     float error = pos_ref-pos_encoder;
-    
-    //Definición de factores 
-    // Q1=1-N*Ts; //Cálculo del parámetro Q1
-    // Q2=kd_m1*N;  //Cálculo del parámetro Q2
  
   if (error>=rangoError || error<=(rangoError*(-1))) // Si el error es menor
   {
     //Acción integral 
     incrI=KI_M1*Ts*(pos_ref_previa_m1-pos_encoder_previa_m1); // Convertir a almacenamiento de error (IMPORTANTE)
-  //Antiwind‐up 
+    //Antiwind‐up 
     if (satur_m1*incrI>0)
     {
       I=Iprevio_m1;
@@ -358,8 +305,7 @@ float Robot_PID_m1(float pos_ref,float pos_encoder,float rangoError)
       I=Iprevio_m1+incrI; 
     }
 
-    
-  //Acción proporcional 
+    //Acción proporcional 
 
     if (pos_encoder>pos_ref)  // bajada
     {
@@ -379,13 +325,6 @@ float Robot_PID_m1(float pos_ref,float pos_encoder,float rangoError)
       }
       D=KD_M1_SUBIDA*((error-_error_ant)/Ts);
     }
-    
-
-  //Acción derivativa 
-    // D=Q1*Dprevio_m1+Q2*c*(pos_ref-pos_ref_previa_m0)-Q2*(pos_encoder-pos_encoder_previa_m0);
-    // Dprevio_m1=D;
-
-
     
 
   //Consigna de control
@@ -441,90 +380,6 @@ float Robot_PID_m1(float pos_ref,float pos_encoder,float rangoError)
 return u_pwm;
 }
 
-float Robot_PID_m2(float pos_ref,float pos_encoder,float rangoError)
-{
-    //Declaración de la variable de control
-
-    float u;
-    float u_pwm;
-
-    //Declaración de las variables temporales del PID
-
-    float P;
-    float I;
-    // float D;   
-
-    float incrI;
-    float error = pos_ref-pos_encoder;
-    
-    //Definición de factores 
-    // Q1=1-N*Ts; //Cálculo del parámetro Q1
-    // Q2=kd*N;  //Cálculo del parámetro Q2
- 
-  if (error>=rangoError || error<=(rangoError*(-1))) // Si el error es menor
-  {
-    //Acción integral 
-    incrI=KI_M2*Ts*(pos_ref_previa_m2-pos_encoder_previa_m2); // Convertir a almacenamiento de error (IMPORTANTE)
-  //Antiwind‐up 
-    if (satur_m2*incrI>0)
-    {
-      I=Iprevio_m2;
-    } 
-    else
-    { 
-      I=Iprevio_m2+incrI; 
-    }
-
-    
-  //Acción proporcional 
-    P=KP_M2*(pos_ref-pos_encoder);
-
-  //Acción derivativa 
-    // D=Q1*Dprevio+Q2*c*(pos_ref-pos_ref_previa_m0)-Q2*(pos_encoder-pos_encoder_previa_m0);
-    // Dprevio=D;
-
-  if (pos_ref!=pos_ref_previa_m2)
-    {
-      Iprevio_m2=0;
-      I=0;
-    }
-  //Consigna de control
-
-    u=P+I;
-    
-
-    if (u>SATPOS) //Si la consigna es mayor que la saturación se pone a 1.
-    {  
-      u=SATPOS; 
-      satur_m2=1;
-    }
-    else if (u<SATNEG) //Si la consigna es menor que la saturación se pone a -1
-    {
-      u=SATNEG; 
-      satur_m2=-1;
-    }
-    else //Si no se cumple ninguna condición anterior la consigna no se modifica
-    {
-      Iprevio_m2=I; 
-      satur_m2=0; 
-    }
-
-    
-
-  //Actualización de variables 
-  pos_ref_previa_m2=pos_ref; //Actualizar posicion de referencia previ del paso anterior
-  pos_encoder_previa_m2=pos_encoder; //Actualizar posición del encoder previa del paso anterior
-  u_pwm=u/245;
-  }
-  else
-  {
-    u_pwm=0;
-  }
-  
-
-return u_pwm;
-}
-
 
 hw_timer_t * timer = NULL; // Puntero para configurar timer
 
@@ -557,9 +412,7 @@ void setup()
 
 void loop() {
   // Declaracion de variables locales
-  //float ang_0=0, ang_1=0, ang_2=0;
   float ang_encoder[3]={0,0,0};  // Ángulos leidos de encoder
-  //float u_PID_M0=0, u_PID_M1=0, u_PID_M2=0; //Variable de control del PWM
   float u_PID_M[3]={0,0,0};  // Variable de control de pwm
 
   // Cambiar set point por serial
@@ -621,11 +474,8 @@ void loop() {
 
 
   // Se ejecuta cada entrada a interrupción:
-
   if(has_expired)
   {
-    // Contador para tiempo entre pasos
-    
 
     // Lectura de encoders
     ang_encoder[0]=encoder0_read(); 
@@ -642,18 +492,21 @@ void loop() {
     }
     else
     {
-        // Cálculo de variable de control de motores
+      // Cálculo de variable de control de motores
+      
       if(_linea==1) // si llamamos por serial el comando LINEA
       {
-        // float pos0_xyz[3]={0,350,0}; //posicion inicial   ESTO SE REEMPLAZA POR COORDENADAS QUE DIGA LA TRAYECTORIA
-        // float pos1_xyz[3]={0,400,0}; //posicion final
+        float pos0_xyz[3]={0,350,0}; //posicion inicial   ESTO SE REEMPLAZA POR COORDENADAS QUE DIGA LA TRAYECTORIA
+        float pos1_xyz[3]={0,400,0}; //posicion final
 
-        FnLinea(); // La funcion cambia las referencias 
+        FnLinea(pos0_xyz,pos1_xyz); // pos0_inicial, pos1_final 
       }
 
-      u_PID_M[0]=Robot_PID_m0(_Pos_ref[0],ang_encoder[0],3); //Primer parámetro Posición de referencia; Segundo parámetro posición actual del encoder; Tercer parámetro: grados de margen para error
-      u_PID_M[1]=Robot_PID_m1(_Pos_ref[1],ang_encoder[1],1);
-      u_PID_M[2]=Robot_PID_m2(_Pos_ref[2],ang_encoder[2],1);
+      // u_PID_M[0]=Robot_PID_m0(_Pos_ref[0],ang_encoder[0],3); //Primer parámetro Posición de referencia; Segundo parámetro posición actual del encoder; Tercer parámetro: grados de margen para error
+      u_PID_M[0]=Control_motor(_Pos_ref[0],ang_encoder[0],3, CONTROL_P, KP_M0, KI_M0);
+      u_PID_M[1]=Control_motor_sb(_Pos_ref[1],ang_encoder[1],1);
+      //u_PID_M[2]=Robot_PID_m2(_Pos_ref[2],ang_encoder[2],1);
+      u_PID_M[2]=Control_motor(_Pos_ref[2],ang_encoder[2],1, CONTROL_P, KP_M2, KI_M2);
 
     }    
     // Aplica pwm a motores
@@ -690,8 +543,6 @@ void loop() {
     Serial.print(">Variable de control M2: ");
     Serial.println(duty_vec[2]);
 
-    
-    // Serial.println(_Pos_ref);  
     
     has_expired=false;
   }

@@ -43,6 +43,9 @@
 #define N 1
 #define C 2.5
 
+#define CONTROL_P 1
+#define CONTROL_PI 2
+
 /// Funciones
 float linPWM(float valPWM, int numMot);
 
