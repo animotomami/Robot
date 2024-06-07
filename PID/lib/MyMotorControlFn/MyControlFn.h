@@ -19,6 +19,10 @@
 
 #define SAMPLE_TIME 0.02
 
+/// Parámetros del control
+
+
+
 /// Funciones
 float linPWM(float valPWM, int numMot);
 

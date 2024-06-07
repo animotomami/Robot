@@ -5,41 +5,29 @@
 #include "PinzaFn.h"
 #include <ESP32Servo.h>
 
-// #define ANG_MAX 90 // Ángulo máximo que puede girar el servo
-// #define ANG_MIN 0 // Ángulo mínimo que puede girar el servo
-
-// #define SERVO_PIN 17 // Se define el pin del servo
 
 float L1=250, L2=250, L3=45, L_pen=70; // HACER DEFINES
 
-// //Se crea el objeto
-// Servo servo_pinza;
-
-// void abrir_pinza()
-// {
-//   servo_pinza.write(ANG_MAX);
-// }
-
-// void cerrar_pinza()
-// {
-//   servo_pinza.write(ANG_MIN);
-// }
 
 #define TIEMPO_ENTRE_PASOS 5 // es TIEMPO ENTRE PASOS*TIEMPO DE MUESTREO en ms
+#define STEP_SIZE 10 // Tamaño de paso en mm para trayectorias
 
 using namespace std;
 
 //Variables globales
 float duty_vec[3]={0,0,0}; //Array de duties. Pueden tomar valor -1 a 1.
 float _Pos_ref[3]={170,70,200}; //Posición de referencia en grados
-uint32_t _lastTimeSample=0;
+
 uint32_t _cont_serial=0,_stop=0, _linea=0;
-float _error_ant=0;
+float _error_ant=0; // *para D
+
 float _pos_actual_xyz[3]={0,0,0}, ang_bhcm[4]={0, 0, 0, 0};
-uint32_t _t_wait_lin=0, _cont_lin=0, _test_lin=0, _cont_pasos=0,_cont_interr_pasos=0;
+uint32_t _t_wait_lin=0, _cont_lin=0, _cont_pasos=0;
+uint32_t _cont_interr_pasos=0; 
 
 
-float max_2Val (float val_1, float val_2)   //  Función de cálculo del máximo entre dos valores:
+float max_2Val (float val_1, float val_2)   
+    //  Función de cálculo del máximo entre dos valores:
     //      - Entradas: (float) val_1, val_2: valores entre los que se calcula el máximo.
     //      - Salidas: (float) valor máximo obtenido (y aviso de error si ambos son iguales).
 {
@@ -51,16 +39,17 @@ float max_2Val (float val_1, float val_2)   //  Función de cálculo del máximo
     else if (val_1<val_2)   // Si el valor 2 es mayor que el 1:
         max=val_2;          //      El valor 2 es máximo.
 
-    else    // Si no se cumple ninguna condición:
-    {
-        std::cout << "Ambos valores son iguales." << std::endl;     // Envío de mensaje de igualdad.
-        max=val_2;                                                  // Se establece el valor como máximo igualmente.
-    }
+      else    // Si no se cumple ninguna condición:
+      {
+          std::cout << "Ambos valores son iguales." << std::endl;     // Envío de mensaje de igualdad.
+          max=val_2;                                                  // Se establece el valor como máximo igualmente.
+      }
 
     return max;     // Se devuelve el valor obtenido.
 }
 
-float convAng_RadToDeg (float angRad)   // Función de conversión de ángulos en radianes a decimales:
+float convAng_RadToDeg (float angRad)   
+    // Función de conversión de ángulos en radianes a decimales:
     //      - Entradas: (float) angRad: Valor angular en radianes a convertir.
     //      - Salidas: (float) angDeg: Valor angular convertido a Grados Decimales.
 {
@@ -70,7 +59,8 @@ float convAng_RadToDeg (float angRad)   // Función de conversión de ángulos e
 }
 
 
-void cin_Inversa (float x, float y, float z)    // Función de cálculo de la cinemática inversa de un Robot Tipo Braccio de TinkerKit.
+void cin_Inversa (float x, float y, float z)    
+    // Función de cálculo de la cinemática inversa de un Robot Tipo Braccio de TinkerKit.
     // Entra el valor de la posición de la pluma en ejes x, y y z y calcula los ángulos que deben adquirir
     // los servos del brazo para alcanzar la posición manteniendo la pluma perpendicular al plano de dibujo.
     //      - Entradas: (float) x, y, z: Posiciones en ejes x, y y z deseadas de la pluma.
@@ -118,14 +108,12 @@ void cin_Inversa (float x, float y, float z)    // Función de cálculo de la ci
     ang_bhcm[2]=110+ang_bhcm[2];
 }
 
-void FnLinea()
+void FnLinea(float pos0_xyz[], float pos1_xyz[]) // Posicion inicial_0, Posicion final_1
 {
-  float pos0_xyz[3]={0,350,0}; //posicion inicial
-  float pos1_xyz[3]={0,400,0}; //posicion final
+  // Declara variables locales
+  int pasos=0;
+  float delta_x=0,delta_y=0; // mm
   
-  static uint32_t lastTimeSent=0;
-
-
   if (_cont_lin==0) // SOLO ENTRA LA PRIMERA VEZ
   {
     cin_Inversa(pos0_xyz[0],pos0_xyz[1],pos0_xyz[2]);
@@ -144,26 +132,21 @@ void FnLinea()
   }
 
   if (millis()-_t_wait_lin > 2000) {
-    _test_lin++;
-    Serial.printf(">test lin: %d\n", _test_lin);     //envía la posición en grados al terminal serie
+    
     Serial.println("Se cumplio 2 seg");
+        
     
-    
-    int pasos=0;
-    float paso=10, delta_x=0,delta_y=0; // mm
-    
-    pasos=abs((pos1_xyz[0]-pos0_xyz[0])/paso);    // Cálculo del número de pasos (basado en eje x para garantizar la fiabilidad de rectas diagonales).
+    pasos=abs((pos1_xyz[0]-pos0_xyz[0])/STEP_SIZE);    // Cálculo del número de pasos (basado en eje x para garantizar la fiabilidad de rectas diagonales).
 
     if (pasos==0) {                // Si el movimiento se produce exclusivamente en el eje y, el paso se basa en el eje y.
-        pasos=abs((pos1_xyz[1]-pos0_xyz[1])/paso);
+        pasos=abs((pos1_xyz[1]-pos0_xyz[1])/STEP_SIZE);
     }
 
     delta_x=((pos1_xyz[0]-pos0_xyz[0]))/pasos;  // Cálculo de la distancia a recorrer por paso en el eje x.
     delta_y=(pos1_xyz[1]-pos0_xyz[1])/pasos;  // Cálculo de la distancia a recorrer por paso en el eje y.
     _cont_interr_pasos++;
-    Serial.printf(">Pasos interrupcion: %d\n", _cont_interr_pasos);     //envía la posición en grados al terminal serie
-   
-   if (_cont_interr_pasos>TIEMPO_ENTRE_PASOS)
+    
+   if (_cont_interr_pasos>TIEMPO_ENTRE_PASOS/SAMPLE_TIME)
    {
     if(_cont_pasos<pasos)
         {
@@ -226,7 +209,13 @@ float ki_m2=1.2; //Constante Integral
 //float kp_m1=1.8; //Constante Proporcional
 float kp_m1=0.5; //Constante Proporcional
 float ki_m1=0; //Constante Integral
-float kd_m1=0.2; //Constante Derivativa
+float kd_m1=0.001; //Constante Derivativa
+
+float kp_m1_subida=0.32;
+float kp_m1_bajada=0.05;
+
+float kd_m1_subida=0.002;
+float kd_m1_bajada=0.0015;
 
 //Variables de memoria
 
@@ -238,9 +227,6 @@ float pos_encoder_previa_m1;
 float pos_encoder_previa_m2;
 
 
-//////////////////////////////////////////////////////
-
-//********************** FN PID **********************
 
 float Robot_PID_m0(float pos_ref,float pos_encoder,float rangoError)
 {
@@ -359,13 +345,33 @@ float Robot_PID_m1(float pos_ref,float pos_encoder,float rangoError)
 
     
   //Acción proporcional 
-    P=kp_m1*(b*pos_ref-pos_encoder);
+
+    if (pos_encoder>pos_ref)  // bajada
+    {
+      P=kp_m1_bajada*(pos_ref-pos_encoder);
+      if (P<-0.35)
+      {
+        P=-0.35;
+      }
+      D=kd_m1*((error-_error_ant)/Ts);
+    }
+    else if (pos_encoder<=pos_ref) //subida
+    {
+      P=kp_m1_subida*(pos_ref-pos_encoder);
+      if (P>=0.9)
+      {
+        P=0.9;
+      }
+      D=kd_m1*((error-_error_ant)/Ts);
+    }
+    
 
   //Acción derivativa 
     // D=Q1*Dprevio_m1+Q2*c*(pos_ref-pos_ref_previa_m0)-Q2*(pos_encoder-pos_encoder_previa_m0);
     // Dprevio_m1=D;
 
-    D=kd_m1*((error-_error_ant)/Ts);
+
+    
 
   //Consigna de control
 
@@ -377,19 +383,19 @@ float Robot_PID_m1(float pos_ref,float pos_encoder,float rangoError)
   // {
   //   u=P+I;
   // }
-    u=P;
+    u=P+D;
     Serial.printf(">P: %f\n", P);     //envía la posición en grados al terminal serie
     Serial.printf(">D: %f\n", D);     //envía la posición en grados al terminal serie
     
 
-    if (u>satpos) //Si la consigna es mayor que la saturación se pone a 1.
+    if (u>1) //Si la consigna es mayor que la saturación se pone a 1.
     {  
-      u=satpos; 
+      u=1; 
       satur_m1=1;
     }
-    else if (u<satneg) //Si la consigna es menor que la saturación se pone a -1
+    else if (u<-1) //Si la consigna es menor que la saturación se pone a -1
     {
-      u=satneg; 
+      u=-1; 
       satur_m1=-1;
     }
     else //Si no se cumple ninguna condición anterior la consigna no se modifica
@@ -409,7 +415,7 @@ float Robot_PID_m1(float pos_ref,float pos_encoder,float rangoError)
   pos_encoder_previa_m1=pos_encoder; //Actualizar posición del encoder previa del paso anterior
   _error_ant=error;
 
-  u_pwm=u/245;
+  u_pwm=u;
   }
   else
   {
@@ -624,7 +630,10 @@ void loop() {
         // Cálculo de variable de control de motores
       if(_linea==1) // si llamamos por serial el comando LINEA
       {
-        FnLinea(); // La funcion cambia las referencias 
+        float pos0_xyz[3]={0,350,0}; //posicion inicial   ESTO SE REEMPLAZA POR COORDENADAS QUE DIGA LA TRAYECTORIA
+        float pos1_xyz[3]={0,400,0}; //posicion final
+
+        FnLinea(pos0_xyz,pos1_xyz); // La funcion cambia las referencias 
       }
 
       u_PID_M[0]=Robot_PID_m0(_Pos_ref[0],ang_encoder[0],3); //Primer parámetro Posición de referencia; Segundo parámetro posición actual del encoder; Tercer parámetro: grados de margen para error
