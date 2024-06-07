@@ -131,9 +131,13 @@ void FnLinea()
     _Pos_ref[0]=ang_bhcm[0];
     _Pos_ref[1]=ang_bhcm[1];
     _Pos_ref[2]=ang_bhcm[2];
+     Serial.printf(">ANG0: %f\n", ang_bhcm[0]);     //envía la posición en grados al terminal serie
+     Serial.printf(">ANG1: %f\n", ang_bhcm[1]);     //envía la posición en grados al terminal serie
+     Serial.printf(">ANG2: %f\n", ang_bhcm[2]);     //envía la posición en grados al terminal serie
+    
     _pos_actual_xyz[0]=pos0_xyz[0];
-    _pos_actual_xyz[0]=pos0_xyz[0];
-    _pos_actual_xyz[0]=pos0_xyz[0];
+    _pos_actual_xyz[1]=pos0_xyz[1];
+    _pos_actual_xyz[2]=pos0_xyz[2];
     _t_wait_lin=millis();
     _cont_lin++;
   }
@@ -149,19 +153,22 @@ void FnLinea()
     
     pasos=abs((pos1_xyz[0]-pos0_xyz[0])/paso);    // Cálculo del número de pasos (basado en eje x para garantizar la fiabilidad de rectas diagonales).
 
-    if (pasos==0)                   // Si el movimiento se produce exclusivamente en el eje y, el paso se basa en el eje y.
+    if (pasos==0) {                // Si el movimiento se produce exclusivamente en el eje y, el paso se basa en el eje y.
         pasos=abs((pos1_xyz[1]-pos0_xyz[1])/paso);
-
+    }
+    Serial.printf(">Pasos: %d\n",pasos);
     delta_x=((pos1_xyz[0]-pos0_xyz[0]))/pasos;  // Cálculo de la distancia a recorrer por paso en el eje x.
     delta_y=(pos1_xyz[1]-pos0_xyz[1])/pasos;  // Cálculo de la distancia a recorrer por paso en el eje y.
 
     if(_cont_pasos<pasos)
     {
       _cont_pasos++;
-      _pos_actual_xyz[0]=_pos_actual_xyz[0]+delta_x*_cont_pasos;  // Suma de la distancia objetivo a la posición x actual.
-      _pos_actual_xyz[1]=_pos_actual_xyz[1]+delta_y*_cont_pasos;  // Suma de la distancia objetivo a la posición y actual.
-
+      _pos_actual_xyz[0]=_pos_actual_xyz[0]+delta_x;  // Suma de la distancia objetivo a la posición x actual.
+      _pos_actual_xyz[1]=_pos_actual_xyz[1]+delta_y;  // Suma de la distancia objetivo a la posición y actual.
+      Serial.printf(">Pos_actual_x: %f\n", _pos_actual_xyz[0]);
+      Serial.printf(">Pos_actual_y: %f\n", _pos_actual_xyz[1]);
       cin_Inversa(_pos_actual_xyz[0],_pos_actual_xyz[1],0);  // Llamada a función del cálculo de la cinemática inversa.
+
         _Pos_ref[0]=ang_bhcm[0];
         _Pos_ref[1]=ang_bhcm[1];
         _Pos_ref[2]=ang_bhcm[2];  
