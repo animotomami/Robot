@@ -25,6 +25,7 @@ float L1=250, L2=250, L3=45, L_pen=70; // HACER DEFINES
 //   servo_pinza.write(ANG_MIN);
 // }
 
+#define TIEMPO_ENTRE_PASOS 5 // es TIEMPO ENTRE PASOS*TIEMPO DE MUESTREO en ms
 
 using namespace std;
 
@@ -35,7 +36,7 @@ uint32_t _lastTimeSample=0;
 uint32_t _cont_serial=0,_stop=0, _linea=0;
 float _error_ant=0;
 float _pos_actual_xyz[3]={0,0,0}, ang_bhcm[4]={0, 0, 0, 0};
-uint32_t _t_wait_lin=0, _cont_lin=0, _test_lin=0, _cont_pasos=0;
+uint32_t _t_wait_lin=0, _cont_lin=0, _test_lin=0, _cont_pasos=0,_cont_interr_pasos=0;
 
 
 float max_2Val (float val_1, float val_2)   //  Función de cálculo del máximo entre dos valores:
@@ -149,36 +150,43 @@ void FnLinea()
     
     
     int pasos=0;
-    float paso=5, delta_x=0,delta_y=0; // mm
+    float paso=10, delta_x=0,delta_y=0; // mm
     
     pasos=abs((pos1_xyz[0]-pos0_xyz[0])/paso);    // Cálculo del número de pasos (basado en eje x para garantizar la fiabilidad de rectas diagonales).
 
     if (pasos==0) {                // Si el movimiento se produce exclusivamente en el eje y, el paso se basa en el eje y.
         pasos=abs((pos1_xyz[1]-pos0_xyz[1])/paso);
     }
-    Serial.printf(">Pasos: %d\n",pasos);
+
     delta_x=((pos1_xyz[0]-pos0_xyz[0]))/pasos;  // Cálculo de la distancia a recorrer por paso en el eje x.
     delta_y=(pos1_xyz[1]-pos0_xyz[1])/pasos;  // Cálculo de la distancia a recorrer por paso en el eje y.
-
+    _cont_interr_pasos++;
+    Serial.printf(">Pasos interrupcion: %d\n", _cont_interr_pasos);     //envía la posición en grados al terminal serie
+   
+   if (_cont_interr_pasos>TIEMPO_ENTRE_PASOS)
+   {
     if(_cont_pasos<pasos)
-    {
-      _cont_pasos++;
-      _pos_actual_xyz[0]=_pos_actual_xyz[0]+delta_x;  // Suma de la distancia objetivo a la posición x actual.
-      _pos_actual_xyz[1]=_pos_actual_xyz[1]+delta_y;  // Suma de la distancia objetivo a la posición y actual.
-      Serial.printf(">Pos_actual_x: %f\n", _pos_actual_xyz[0]);
-      Serial.printf(">Pos_actual_y: %f\n", _pos_actual_xyz[1]);
-      cin_Inversa(_pos_actual_xyz[0],_pos_actual_xyz[1],0);  // Llamada a función del cálculo de la cinemática inversa.
+        {
 
-        _Pos_ref[0]=ang_bhcm[0];
-        _Pos_ref[1]=ang_bhcm[1];
-        _Pos_ref[2]=ang_bhcm[2];  
-    }
-    else
-    {
-      _cont_pasos=0;
-      _linea=0;
-      _cont_lin=0;
-    }
+          _cont_pasos++;
+          _pos_actual_xyz[0]=_pos_actual_xyz[0]+delta_x;  // Suma de la distancia objetivo a la posición x actual.
+          _pos_actual_xyz[1]=_pos_actual_xyz[1]+delta_y;  // Suma de la distancia objetivo a la posición y actual.
+          cin_Inversa(_pos_actual_xyz[0],_pos_actual_xyz[1],0);  // Llamada a función del cálculo de la cinemática inversa.
+
+            _Pos_ref[0]=ang_bhcm[0];
+            _Pos_ref[1]=ang_bhcm[1];
+            _Pos_ref[2]=ang_bhcm[2];  
+
+            _cont_interr_pasos=0; // reset contador
+        }
+        else
+        {
+          _cont_pasos=0;
+          _linea=0;
+          _cont_lin=0;
+        }
+   }
+    
 
     Serial.printf(">Pos ref base: %f\n", _Pos_ref[0]);     //envía la posición en grados al terminal serie
     Serial.printf(">Pos ref hombro: %f\n", _Pos_ref[1]);     //envía la posición en grados al terminal serie
@@ -215,7 +223,8 @@ float kp_m0=6; //Constante Proporcional
 float ki_m0=2; //Constante Integral
 float kp_m2=1.5; //Constante Proporcional
 float ki_m2=1.2; //Constante Integral
-float kp_m1=1.8; //Constante Proporcional
+//float kp_m1=1.8; //Constante Proporcional
+float kp_m1=0.5; //Constante Proporcional
 float ki_m1=0; //Constante Integral
 float kd_m1=0.2; //Constante Derivativa
 
@@ -594,6 +603,9 @@ void loop() {
 
   if(has_expired)
   {
+    // Contador para tiempo entre pasos
+    
+
     // Lectura de encoders
     ang_encoder[0]=encoder0_read(); 
     ang_encoder[1]=encoder1_read();
@@ -616,14 +628,14 @@ void loop() {
       }
 
       u_PID_M[0]=Robot_PID_m0(_Pos_ref[0],ang_encoder[0],3); //Primer parámetro Posición de referencia; Segundo parámetro posición actual del encoder; Tercer parámetro: grados de margen para error
-      u_PID_M[1]=Robot_PID_m1(_Pos_ref[1],ang_encoder[1],2);
-      u_PID_M[2]=Robot_PID_m2(_Pos_ref[2],ang_encoder[2],2);
+      u_PID_M[1]=Robot_PID_m1(_Pos_ref[1],ang_encoder[1],1);
+      u_PID_M[2]=Robot_PID_m2(_Pos_ref[2],ang_encoder[2],1);
 
     }    
     // Aplica pwm a motores
 
     duty_vec[0]=linPWM(u_PID_M[0], 0);
-    duty_vec[1]=linPWM(u_PID_M[1], 1);
+    duty_vec[1]=u_PID_M[1];
     duty_vec[2]=linPWM(u_PID_M[2], 2);
     set_comp_tres_motores(duty_vec);
 
