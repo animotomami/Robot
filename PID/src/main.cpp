@@ -18,6 +18,20 @@ using namespace std;
 float duty_vec[3]={0,0,0}; //Array de duties. Pueden tomar valor -1 a 1.
 float _Pos_ref[3]={170,70,200}; //Posición de referencia en grados
 
+float Ts=SAMPLE_TIME; //Periodo de muestreo
+
+float Q1;
+float Q2;
+
+float Dprevio_m1=0; //Valor de la parte derivativa previo
+float Iprevio_m0=0;  //Valor de la parte integral previa m0
+float Iprevio_m1=0;  //Valor de la parte integral previa m1
+float Iprevio_m2=0;  //Valor de la parte integral previa m1
+float satur_m0=0; //Saturacion para integrar el anti-windup m0
+float satur_m1=0; //Saturacion para integrar el anti-windup m1
+float satur_m2=0;  //Saturacion para integrar el anti-windup m2
+
+
 uint32_t _cont_serial=0,_stop=0, _linea=0;
 float _error_ant=0; // *para D
 
@@ -108,8 +122,11 @@ void cin_Inversa (float x, float y, float z)
     ang_bhcm[2]=110+ang_bhcm[2];
 }
 
-void FnLinea(float pos0_xyz[], float pos1_xyz[]) // Posicion inicial_0, Posicion final_1
+void FnLinea() // Posicion inicial_0, Posicion final_1
 {
+  float pos0_xyz[3]={0,350,0}; //posicion inicial   ESTO SE REEMPLAZA POR COORDENADAS QUE DIGA LA TRAYECTORIA
+  float pos1_xyz[3]={0,400,0}; //posicion final
+
   // Declara variables locales
   int pasos=0;
   float delta_x=0,delta_y=0; // mm
@@ -181,41 +198,40 @@ void FnLinea(float pos0_xyz[], float pos1_xyz[]) // Posicion inicial_0, Posicion
 
 /////////////////////Declaración de parámetros del PID ////////////////
 
-float N=1; //Coeficiente del filtro para la acción diferencial 
-float b=1; //Peso del punto de funcionamiento en el término proporcional
-float c=2.5; //Peso del punto de funcionamiento en el término de la acción diferencial
-float Ts=SAMPLE_TIME; //Periodo de muestreo
+// float N=1; //Coeficiente del filtro para la acción diferencial 
+// float c=2.5; //Peso del punto de funcionamiento en el término de la acción diferencial
+// float Ts=SAMPLE_TIME; //Periodo de muestreo
 
-float satpos=245; //Valor de la saturación positiva del control. 
-float satneg=-245; //Valor de la saturación negativa del control. 
+// // float satpos=245; //Valor de la saturación positiva del control. 
+// // float satneg=-245; //Valor de la saturación negativa del control. 
 
-float Q1;
-float Q2;
-//Declaracion de variables
+// float Q1;
+// float Q2;
+// //Declaracion de variables
 
-float Dprevio_m1=0; //Valor de la parte derivativa previo
-float Iprevio_m0=0;  //Valor de la parte integral previa m0
-float Iprevio_m1=0;  //Valor de la parte integral previa m1
-float Iprevio_m2=0;  //Valor de la parte integral previa m1
-float satur_m0=0; //Saturacion para integrar el anti-windup m0
-float satur_m1=0; //Saturacion para integrar el anti-windup m1
-float satur_m2=0;  //Valor de la parte integral previa m1
+// float Dprevio_m1=0; //Valor de la parte derivativa previo
+// float Iprevio_m0=0;  //Valor de la parte integral previa m0
+// float Iprevio_m1=0;  //Valor de la parte integral previa m1
+// float Iprevio_m2=0;  //Valor de la parte integral previa m1
+// float satur_m0=0; //Saturacion para integrar el anti-windup m0
+// float satur_m1=0; //Saturacion para integrar el anti-windup m1
+// float satur_m2=0;  //Valor de la parte integral previa m1
 
 //Constantes del PID
-float kp_m0=6; //Constante Proporcional
-float ki_m0=2; //Constante Integral
-float kp_m2=1.5; //Constante Proporcional
-float ki_m2=1.2; //Constante Integral
-//float kp_m1=1.8; //Constante Proporcional
-float kp_m1=0.5; //Constante Proporcional
-float ki_m1=0; //Constante Integral
-float kd_m1=0.001; //Constante Derivativa
+// float kp_m0=6; //Constante Proporcional
+// float ki_m0=2; //Constante Integral
+// float kp_m2=1.5; //Constante Proporcional
+// float ki_m2=1.2; //Constante Integral
+// //float kp_m1=1.8; //Constante Proporcional
+// float kp_m1=0.5; //Constante Proporcional
+// float ki_m1=0; //Constante Integral
+// float kd_m1=0.001; //Constante Derivativa
 
-float kp_m1_subida=0.32;
-float kp_m1_bajada=0.05;
+// float kp_m1_subida=0.32;
+// float kp_m1_bajada=0.05;
 
-float kd_m1_subida=0.002;
-float kd_m1_bajada=0.0015;
+// float kd_m1_subida=0.002;
+// float kd_m1_bajada=0.0015;
 
 //Variables de memoria
 
@@ -251,7 +267,7 @@ float Robot_PID_m0(float pos_ref,float pos_encoder,float rangoError)
   if (error>=rangoError || error<=(rangoError*(-1))) // Si el error es menor
   {
     //Acción integral 
-    incrI=ki_m0*Ts*(pos_ref_previa_m0-pos_encoder_previa_m0); // Convertir a almacenamiento de error (IMPORTANTE)
+    incrI=KI_M0*Ts*(pos_ref_previa_m0-pos_encoder_previa_m0); // Convertir a almacenamiento de error (IMPORTANTE)
   //Antiwind‐up 
     if (satur_m0*incrI>0)
     {
@@ -264,7 +280,7 @@ float Robot_PID_m0(float pos_ref,float pos_encoder,float rangoError)
 
    
   //Acción proporcional 
-    P=kp_m0*(b*pos_ref-pos_encoder);
+    P=KP_M0*(pos_ref-pos_encoder);
 
   //Acción derivativa 
     // D=Q1*Dprevio+Q2*c*(pos_ref-pos_ref_previa_m0)-Q2*(pos_encoder-pos_encoder_previa_m0);
@@ -274,14 +290,14 @@ float Robot_PID_m0(float pos_ref,float pos_encoder,float rangoError)
 
     u=P+I;
     
-    if (u>satpos) //Si la consigna es mayor que la saturación se pone a 1.
+    if (u>SATPOS) //Si la consigna es mayor que la saturación se pone a 1.
     {  
-      u=satpos; 
+      u=SATPOS; 
       satur_m0=1;
     }
-    else if (u<satneg) //Si la consigna es menor que la saturación se pone a -1
+    else if (u<SATNEG) //Si la consigna es menor que la saturación se pone a -1
     {
-      u=satneg; 
+      u=SATNEG; 
       satur_m0=-1;
     }
     else //Si no se cumple ninguna condición anterior la consigna no se modifica
@@ -332,7 +348,7 @@ float Robot_PID_m1(float pos_ref,float pos_encoder,float rangoError)
   if (error>=rangoError || error<=(rangoError*(-1))) // Si el error es menor
   {
     //Acción integral 
-    incrI=ki_m1*Ts*(pos_ref_previa_m1-pos_encoder_previa_m1); // Convertir a almacenamiento de error (IMPORTANTE)
+    incrI=KI_M1*Ts*(pos_ref_previa_m1-pos_encoder_previa_m1); // Convertir a almacenamiento de error (IMPORTANTE)
   //Antiwind‐up 
     if (satur_m1*incrI>0)
     {
@@ -348,21 +364,21 @@ float Robot_PID_m1(float pos_ref,float pos_encoder,float rangoError)
 
     if (pos_encoder>pos_ref)  // bajada
     {
-      P=kp_m1_bajada*(pos_ref-pos_encoder);
+      P=KP_M1_BAJADA*(pos_ref-pos_encoder);
       if (P<-0.35)
       {
         P=-0.35;
       }
-      D=kd_m1*((error-_error_ant)/Ts);
+      D=KD_M1_BAJADA*((error-_error_ant)/Ts);
     }
     else if (pos_encoder<=pos_ref) //subida
     {
-      P=kp_m1_subida*(pos_ref-pos_encoder);
+      P=KP_M1_SUBIDA*(pos_ref-pos_encoder);
       if (P>=0.9)
       {
         P=0.9;
       }
-      D=kd_m1*((error-_error_ant)/Ts);
+      D=KD_M1_SUBIDA*((error-_error_ant)/Ts);
     }
     
 
@@ -449,7 +465,7 @@ float Robot_PID_m2(float pos_ref,float pos_encoder,float rangoError)
   if (error>=rangoError || error<=(rangoError*(-1))) // Si el error es menor
   {
     //Acción integral 
-    incrI=ki_m2*Ts*(pos_ref_previa_m2-pos_encoder_previa_m2); // Convertir a almacenamiento de error (IMPORTANTE)
+    incrI=KI_M2*Ts*(pos_ref_previa_m2-pos_encoder_previa_m2); // Convertir a almacenamiento de error (IMPORTANTE)
   //Antiwind‐up 
     if (satur_m2*incrI>0)
     {
@@ -462,7 +478,7 @@ float Robot_PID_m2(float pos_ref,float pos_encoder,float rangoError)
 
     
   //Acción proporcional 
-    P=kp_m2*(b*pos_ref-pos_encoder);
+    P=KP_M2*(pos_ref-pos_encoder);
 
   //Acción derivativa 
     // D=Q1*Dprevio+Q2*c*(pos_ref-pos_ref_previa_m0)-Q2*(pos_encoder-pos_encoder_previa_m0);
@@ -478,14 +494,14 @@ float Robot_PID_m2(float pos_ref,float pos_encoder,float rangoError)
     u=P+I;
     
 
-    if (u>satpos) //Si la consigna es mayor que la saturación se pone a 1.
+    if (u>SATPOS) //Si la consigna es mayor que la saturación se pone a 1.
     {  
-      u=satpos; 
+      u=SATPOS; 
       satur_m2=1;
     }
-    else if (u<satneg) //Si la consigna es menor que la saturación se pone a -1
+    else if (u<SATNEG) //Si la consigna es menor que la saturación se pone a -1
     {
-      u=satneg; 
+      u=SATNEG; 
       satur_m2=-1;
     }
     else //Si no se cumple ninguna condición anterior la consigna no se modifica
@@ -630,10 +646,10 @@ void loop() {
         // Cálculo de variable de control de motores
       if(_linea==1) // si llamamos por serial el comando LINEA
       {
-        float pos0_xyz[3]={0,350,0}; //posicion inicial   ESTO SE REEMPLAZA POR COORDENADAS QUE DIGA LA TRAYECTORIA
-        float pos1_xyz[3]={0,400,0}; //posicion final
+        // float pos0_xyz[3]={0,350,0}; //posicion inicial   ESTO SE REEMPLAZA POR COORDENADAS QUE DIGA LA TRAYECTORIA
+        // float pos1_xyz[3]={0,400,0}; //posicion final
 
-        FnLinea(pos0_xyz,pos1_xyz); // La funcion cambia las referencias 
+        FnLinea(); // La funcion cambia las referencias 
       }
 
       u_PID_M[0]=Robot_PID_m0(_Pos_ref[0],ang_encoder[0],3); //Primer parámetro Posición de referencia; Segundo parámetro posición actual del encoder; Tercer parámetro: grados de margen para error
