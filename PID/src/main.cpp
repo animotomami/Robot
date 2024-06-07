@@ -8,8 +8,7 @@
 
 float L1=250, L2=250, L3=45, L_pen=70; // HACER DEFINES
 
-
-#define TIEMPO_ENTRE_PASOS 5 // es TIEMPO ENTRE PASOS*TIEMPO DE MUESTREO en ms
+#define TIEMPO_ENTRE_PASOS 0.1 // ms
 #define STEP_SIZE 10 // Tamaño de paso en mm para trayectorias
 
 using namespace std;
@@ -163,7 +162,7 @@ void FnLinea() // Posicion inicial_0, Posicion final_1
     delta_y=(pos1_xyz[1]-pos0_xyz[1])/pasos;  // Cálculo de la distancia a recorrer por paso en el eje y.
     _cont_interr_pasos++;
     
-   if (_cont_interr_pasos>TIEMPO_ENTRE_PASOS/SAMPLE_TIME)
+   if (_cont_interr_pasos>(TIEMPO_ENTRE_PASOS/SAMPLE_TIME))
    {
     if(_cont_pasos<pasos)
         {
