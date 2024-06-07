@@ -3,13 +3,9 @@
 #include "MyEncoderFn.h"
 #include "MyPwmFn.h"
 #include "PinzaFn.h"
+#include "MyTrayec.h"
 #include <ESP32Servo.h>
 
-
-float L1=250, L2=250, L3=45, L_pen=70; // HACER DEFINES
-
-#define TIEMPO_ENTRE_PASOS 0.1 // ms
-#define STEP_SIZE 10 // Tamaño de paso en mm para trayectorias
 
 using namespace std;
 
@@ -23,19 +19,15 @@ float Q1;
 float Q2;
 
 float Dprevio_m1=0; //Valor de la parte derivativa previo
-float Iprevio_m0=0;  //Valor de la parte integral previa m0
-float Iprevio_m1=0;  //Valor de la parte integral previa m1
-float Iprevio_m2=0;  //Valor de la parte integral previa m1
-float satur_m0=0; //Saturacion para integrar el anti-windup m0
-float satur_m1=0; //Saturacion para integrar el anti-windup m1
-float satur_m2=0;  //Saturacion para integrar el anti-windup m2
+// float satur_m0=0; //Saturacion para integrar el anti-windup m0
+// float satur_m1=0; //Saturacion para integrar el anti-windup m1
+// float satur_m2=0;  //Saturacion para integrar el anti-windup m2
 
-float pos_ref_previa_m0;
-float pos_ref_previa_m1;
-float pos_ref_previa_m2;
-float pos_encoder_previa_m0;
-float pos_encoder_previa_m1;
-float pos_encoder_previa_m2;
+float pos_ref_previa;
+float pos_ref_previa_sb;
+float pos_encoder_previa;
+float pos_encoder_previa_sb;
+
 
 
 uint32_t _cont_serial=0,_stop=0, _linea=0;
@@ -46,87 +38,87 @@ uint32_t _t_wait_lin=0, _cont_lin=0, _cont_pasos=0;
 uint32_t _cont_interr_pasos=0; 
 
 
-float max_2Val (float val_1, float val_2)   
-    //  Función de cálculo del máximo entre dos valores:
-    //      - Entradas: (float) val_1, val_2: valores entre los que se calcula el máximo.
-    //      - Salidas: (float) valor máximo obtenido (y aviso de error si ambos son iguales).
-{
-    float max=0;    // Declaración de variables.
+// float max_2Val (float val_1, float val_2)   
+//     //  Función de cálculo del máximo entre dos valores:
+//     //      - Entradas: (float) val_1, val_2: valores entre los que se calcula el máximo.
+//     //      - Salidas: (float) valor máximo obtenido (y aviso de error si ambos son iguales).
+// {
+//     float max=0;    // Declaración de variables.
 
-    if (val_1>val_2)        // Si el valor 1 es mayor que el 2:
-        max=val_1;          //      El valor 1 es máximo.
+//     if (val_1>val_2)        // Si el valor 1 es mayor que el 2:
+//         max=val_1;          //      El valor 1 es máximo.
 
-    else if (val_1<val_2)   // Si el valor 2 es mayor que el 1:
-        max=val_2;          //      El valor 2 es máximo.
+//     else if (val_1<val_2)   // Si el valor 2 es mayor que el 1:
+//         max=val_2;          //      El valor 2 es máximo.
 
-      else    // Si no se cumple ninguna condición:
-      {
-          std::cout << "Ambos valores son iguales." << std::endl;     // Envío de mensaje de igualdad.
-          max=val_2;                                                  // Se establece el valor como máximo igualmente.
-      }
+//       else    // Si no se cumple ninguna condición:
+//       {
+//           std::cout << "Ambos valores son iguales." << std::endl;     // Envío de mensaje de igualdad.
+//           max=val_2;                                                  // Se establece el valor como máximo igualmente.
+//       }
 
-    return max;     // Se devuelve el valor obtenido.
-}
+//     return max;     // Se devuelve el valor obtenido.
+// }
 
-float convAng_RadToDeg (float angRad)   
-    // Función de conversión de ángulos en radianes a decimales:
-    //      - Entradas: (float) angRad: Valor angular en radianes a convertir.
-    //      - Salidas: (float) angDeg: Valor angular convertido a Grados Decimales.
-{
-    float angDeg=0;                 // Declaración de variables.
-    angDeg=angRad*360/(2*3.1416);   // Fórmula de conversión a decimales.
-    return angDeg;                  // Devuelve el ángulo calculado en Grados Decimales.
-}
+// float convAng_RadToDeg (float angRad)   
+//     // Función de conversión de ángulos en radianes a decimales:
+//     //      - Entradas: (float) angRad: Valor angular en radianes a convertir.
+//     //      - Salidas: (float) angDeg: Valor angular convertido a Grados Decimales.
+// {
+//     float angDeg=0;                 // Declaración de variables.
+//     angDeg=angRad*360/(2*3.1416);   // Fórmula de conversión a decimales.
+//     return angDeg;                  // Devuelve el ángulo calculado en Grados Decimales.
+// }
 
 
-void cin_Inversa (float x, float y, float z)    
-    // Función de cálculo de la cinemática inversa de un Robot Tipo Braccio de TinkerKit.
-    // Entra el valor de la posición de la pluma en ejes x, y y z y calcula los ángulos que deben adquirir
-    // los servos del brazo para alcanzar la posición manteniendo la pluma perpendicular al plano de dibujo.
-    //      - Entradas: (float) x, y, z: Posiciones en ejes x, y y z deseadas de la pluma.
-    //      - Salidas: Modifica sobre la variable global de ángulos de servo "ang_bhcm[4]".
-{
-    float t, a, b, c, zP1_plus, zP1_minus, zP1;     // Declaración de variables.
-    float P1[2]={0,0}, P2[2]={0,0}, P3[2]={0,0};
+// void cin_Inversa (float x, float y, float z)    
+//     // Función de cálculo de la cinemática inversa de un Robot Tipo Braccio de TinkerKit.
+//     // Entra el valor de la posición de la pluma en ejes x, y y z y calcula los ángulos que deben adquirir
+//     // los servos del brazo para alcanzar la posición manteniendo la pluma perpendicular al plano de dibujo.
+//     //      - Entradas: (float) x, y, z: Posiciones en ejes x, y y z deseadas de la pluma.
+//     //      - Salidas: Modifica sobre la variable global de ángulos de servo "ang_bhcm[4]".
+// {
+//     float t, a, b, c, zP1_plus, zP1_minus, zP1;     // Declaración de variables.
+//     float P1[2]={0,0}, P2[2]={0,0}, P3[2]={0,0};
 
-    // Nota: Se trabaja en el plano w-z, que contiene las articulaciones del hombro, codo y muñeca, ignorando el giro de la base.
-    P3[0]=z+L_pen;
-    P3[1]=sqrt(pow(x,2)+pow(y,2));
+//     // Nota: Se trabaja en el plano w-z, que contiene las articulaciones del hombro, codo y muñeca, ignorando el giro de la base.
+//     P3[0]=z+L_PEN;
+//     P3[1]=sqrt(pow(x,2)+pow(y,2));
 
-    P2[0]=P3[0]+L3;
-    P2[1]=P3[1];
+//     P2[0]=P3[0]+L3;
+//     P2[1]=P3[1];
 
-    // RESOLUCIÖN DE LA ECUACIÖN CUADRÁTICA PARA LA POSICIÓN DEL CODO:
-    t=-pow(L2,2)+pow(L1,2)+pow(P2[1],2)+pow(P2[0],2);   // Cálculo de la constante t.
-    a=4*pow(P2[0],2)+(4*pow(P2[1],2));                  // Cálculo del coeficiente a.
-    b=-4*t*P2[0];                                       // Cálculo del coeficiente b.
-    c=(-4*pow(P2[1],2)*pow(L1,2))+(pow(t,2));           // Cálculo del coeficiente c.
+//     // RESOLUCIÖN DE LA ECUACIÖN CUADRÁTICA PARA LA POSICIÓN DEL CODO:
+//     t=-pow(L2,2)+pow(L1,2)+pow(P2[1],2)+pow(P2[0],2);   // Cálculo de la constante t.
+//     a=4*pow(P2[0],2)+(4*pow(P2[1],2));                  // Cálculo del coeficiente a.
+//     b=-4*t*P2[0];                                       // Cálculo del coeficiente b.
+//     c=(-4*pow(P2[1],2)*pow(L1,2))+(pow(t,2));           // Cálculo del coeficiente c.
 
-    zP1_plus=(-b+sqrt(pow(b,2)-(4*a*c)))/(2*a);     // Cálculo de la solución 01 de la ecuación.
-    zP1_minus=(-b-sqrt(pow(b,2)-(4*a*c)))/(2*a);    // Cálculo de la solución 02 de la ecuación.
+//     zP1_plus=(-b+sqrt(pow(b,2)-(4*a*c)))/(2*a);     // Cálculo de la solución 01 de la ecuación.
+//     zP1_minus=(-b-sqrt(pow(b,2)-(4*a*c)))/(2*a);    // Cálculo de la solución 02 de la ecuación.
 
-    zP1=max_2Val(zP1_minus,zP1_plus);                       // LLamada a función de selección de la mayor solución disponible.
+//     zP1=max_2Val(zP1_minus,zP1_plus);                       // LLamada a función de selección de la mayor solución disponible.
 
-    P1[0]=zP1;
-    P1[1]=sqrt((L1*L1)-(zP1*zP1));
+//     P1[0]=zP1;
+//     P1[1]=sqrt((L1*L1)-(zP1*zP1));
 
-    // CÁLCULOS DE LOS ÁNGULOS (radianes, en Referencia Robot), (almacenamiento en variable global):
-    ang_bhcm[0]=asin(x/P3[1]);                                                        // Cálculo del ángulo de la base.
-    ang_bhcm[1]=atan2(P1[1],P1[0]);                                                   // Cálculo del ángulo del hombro.
-    ang_bhcm[2]=-(atan2((P2[0]-P1[0]),(P2[1]-P1[1]))-((3.1416/2)-ang_bhcm[1]));       // Cálculo del ángulo del codo.
-    ang_bhcm[3]=acos((P3[0]-P2[0])/L3)-ang_bhcm[1]-ang_bhcm[2];                       // Cálculo del ángulo de la base.
+//     // CÁLCULOS DE LOS ÁNGULOS (radianes, en Referencia Robot), (almacenamiento en variable global):
+//     ang_bhcm[0]=asin(x/P3[1]);                                                        // Cálculo del ángulo de la base.
+//     ang_bhcm[1]=atan2(P1[1],P1[0]);                                                   // Cálculo del ángulo del hombro.
+//     ang_bhcm[2]=-(atan2((P2[0]-P1[0]),(P2[1]-P1[1]))-((3.1416/2)-ang_bhcm[1]));       // Cálculo del ángulo del codo.
+//     ang_bhcm[3]=acos((P3[0]-P2[0])/L3)-ang_bhcm[1]-ang_bhcm[2];                       // Cálculo del ángulo de la base.
 
-    // BUCLE DE COONVERSIÓN A GRADOS DECIMALES:
-    for (int j=0;j<4;j++)
-    {
-        ang_bhcm[j]=convAng_RadToDeg(ang_bhcm[j]);   //  Llamada a función de conversión de radianes a grados, (sobreescritura de variable global).
-    }
+//     // BUCLE DE COONVERSIÓN A GRADOS DECIMALES:
+//     for (int j=0;j<4;j++)
+//     {
+//         ang_bhcm[j]=convAng_RadToDeg(ang_bhcm[j]);   //  Llamada a función de conversión de radianes a grados, (sobreescritura de variable global).
+//     }
 
-    // NORMALIZADO:
-    ang_bhcm[0]=180+ang_bhcm[0];
-    ang_bhcm[1]=135-ang_bhcm[1];
-    ang_bhcm[2]=110+ang_bhcm[2];
-}
+//     // NORMALIZADO:
+//     ang_bhcm[0]=180+ang_bhcm[0];
+//     ang_bhcm[1]=135-ang_bhcm[1];
+//     ang_bhcm[2]=110+ang_bhcm[2];
+// }
 
 void FnLinea(float pos0_xyz[],float pos1_xyz[]) // Posicion inicial_0, Posicion final_1
 {
@@ -149,7 +141,6 @@ void FnLinea(float pos0_xyz[],float pos1_xyz[]) // Posicion inicial_0, Posicion 
   }
 
   if (millis()-_t_wait_lin > 2000) {
-    
 
     pasos=abs((pos1_xyz[0]-pos0_xyz[0])/STEP_SIZE);    // Cálculo del número de pasos (basado en eje x para garantizar la fiabilidad de rectas diagonales).
 
@@ -194,77 +185,44 @@ void FnLinea(float pos0_xyz[],float pos1_xyz[]) // Posicion inicial_0, Posicion 
 }
 
 
-float Control_motor(float pos_ref,float pos_encoder,float rangoError, int tipo_control, float kp, float ki)
+float Control_motor(float pos_ref,float pos_encoder,float rangoError, float kp, float ki)
 {
     //Declaración de la variable de control
 
     float u;
     float u_pwm;
 
-    //Declaración de las variables temporales del PID
+    //Declaración de las variables temporales del P
 
     float P;
-    float I;
-
-    float incrI;
     float error = pos_ref-pos_encoder;
 
  
   if (error>=rangoError || error<=(rangoError*(-1))) // Si el error es menor
   {
     
-    ////// Acción integral 
-    incrI=ki*Ts*(pos_ref_previa_m0-pos_encoder_previa_m0); // Convertir a almacenamiento de error (IMPORTANTE)
-
-    if (pos_ref!=pos_ref_previa_m0 || _cont_serial==0) // Si se cambia de referencia el acumulado se hace 0
-    {
-      Iprevio_m0=0;
-    }
-    
-    //Antiwind‐up 
-    if (satur_m0*incrI>0)
-    {
-      I=Iprevio_m0;
-    } 
-    else
-    { 
-      I=Iprevio_m0+incrI; 
-    }
-
     /////// Acción proporcional 
     P=kp*(pos_ref-pos_encoder);
 
 
     ////// Consigna de control
 
-    switch (tipo_control)
-    {
-      case CONTROL_P:
-      u=P;
-      case CONTROL_PI:
-      u=P+I;
-    }
+    u=P;
     
     if (u>SATPOS) //Si la consigna es mayor que la saturación se pone a 1.
     {  
       u=SATPOS; 
-      satur_m0=1;
     }
     else if (u<SATNEG) //Si la consigna es menor que la saturación se pone a -1
     {
       u=SATNEG; 
-      satur_m0=-1;
     }
-    else //Si no se cumple ninguna condición anterior la consigna no se modifica
-    {
-      Iprevio_m0=I; 
-      satur_m0=0; 
-    }
+
     
     //Actualización de variables 
     
-    pos_ref_previa_m0=pos_ref; //Actualizar posicion de referencia previ del paso anterior
-    pos_encoder_previa_m0=pos_encoder; //Actualizar posición del encoder previa del paso anterior
+    pos_ref_previa=pos_ref; //Actualizar posicion de referencia previ del paso anterior
+    pos_encoder_previa=pos_encoder; //Actualizar posición del encoder previa del paso anterior
     u_pwm=u/245;
   }
   else
@@ -285,26 +243,13 @@ float Control_motor_sb(float pos_ref,float pos_encoder,float rangoError) // Cont
     //Declaración de las variables temporales del PID
 
     float P;
-    float I;
     float D;   
 
-    float incrI;
     float error = pos_ref-pos_encoder;
  
   if (error>=rangoError || error<=(rangoError*(-1))) // Si el error es menor
   {
-    //Acción integral 
-    incrI=KI_M1*Ts*(pos_ref_previa_m1-pos_encoder_previa_m1); // Convertir a almacenamiento de error (IMPORTANTE)
-    //Antiwind‐up 
-    if (satur_m1*incrI>0)
-    {
-      I=Iprevio_m1;
-    } 
-    else
-    { 
-      I=Iprevio_m1+incrI; 
-    }
-
+    
     //Acción proporcional 
 
     if (pos_encoder>pos_ref)  // bajada
@@ -345,28 +290,16 @@ float Control_motor_sb(float pos_ref,float pos_encoder,float rangoError) // Cont
     if (u>1) //Si la consigna es mayor que la saturación se pone a 1.
     {  
       u=1; 
-      satur_m1=1;
     }
     else if (u<-1) //Si la consigna es menor que la saturación se pone a -1
     {
       u=-1; 
-      satur_m1=-1;
-    }
-    else //Si no se cumple ninguna condición anterior la consigna no se modifica
-    {
-      Iprevio_m1=I; 
-      satur_m1=0; 
     }
 
-    // Si se actualiza el set point o si se pasa de STOP a GO
-    if (pos_ref!=pos_ref_previa_m1 || _cont_serial==0)
-    {
-      Iprevio_m1=0;
-    }
 
   //Actualización de variables 
-  pos_ref_previa_m1=pos_ref; //Actualizar posicion de referencia previ del paso anterior
-  pos_encoder_previa_m1=pos_encoder; //Actualizar posición del encoder previa del paso anterior
+  pos_ref_previa_sb=pos_ref; //Actualizar posicion de referencia previ del paso anterior
+  pos_encoder_previa_sb=pos_encoder; //Actualizar posición del encoder previa del paso anterior
   _error_ant=error;
 
   u_pwm=u;
@@ -488,7 +421,6 @@ void loop() {
         u_PID_M[0]=0; //Primer parámetro Posición de referencia; Segundo parámetro posición actual del encoder; Tercer parámetro: grados de margen para error
         u_PID_M[1]=0;
         u_PID_M[2]=0;
-        Iprevio_m2=0;
     }
     else
     {
@@ -503,10 +435,10 @@ void loop() {
       }
 
       // u_PID_M[0]=Robot_PID_m0(_Pos_ref[0],ang_encoder[0],3); //Primer parámetro Posición de referencia; Segundo parámetro posición actual del encoder; Tercer parámetro: grados de margen para error
-      u_PID_M[0]=Control_motor(_Pos_ref[0],ang_encoder[0],3, CONTROL_P, KP_M0, KI_M0);
+      u_PID_M[0]=Control_motor(_Pos_ref[0],ang_encoder[0],3, KP_M0, KI_M0);
       u_PID_M[1]=Control_motor_sb(_Pos_ref[1],ang_encoder[1],1);
       //u_PID_M[2]=Robot_PID_m2(_Pos_ref[2],ang_encoder[2],1);
-      u_PID_M[2]=Control_motor(_Pos_ref[2],ang_encoder[2],1, CONTROL_P, KP_M2, KI_M2);
+      u_PID_M[2]=Control_motor(_Pos_ref[2],ang_encoder[2],1, KP_M2, KI_M2);
 
     }    
     // Aplica pwm a motores
