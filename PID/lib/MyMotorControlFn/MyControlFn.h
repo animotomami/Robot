@@ -9,11 +9,11 @@
 #define LIM_SUP_E0 230
 #define LIM_INF_E0 110 
 
-#define LIM_SUP_E1 125
-#define LIM_INF_E1 50
+#define LIM_SUP_E1 110
+#define LIM_INF_E1 45
 
 #define LIM_SUP_E2 230
-#define LIM_INF_E2 100 //ESTABA EN 170
+#define LIM_INF_E2 170 
 
 /// Tiempo de muestreo en segundos
 
@@ -31,8 +31,8 @@
 #define KI_M1 0
 #define KD_M1 0.001
 
-#define KP_M1_SUBIDA 0.32
-#define KP_M1_BAJADA 0.05
+#define KP_M1_SUBIDA 0.28
+#define KP_M1_BAJADA 0.07
 
 #define KD_M1_SUBIDA 0.002
 #define KD_M1_BAJADA 0.0015
