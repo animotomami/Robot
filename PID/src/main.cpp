@@ -25,6 +25,9 @@ float pos_ref_previa_sb;
 float pos_encoder_previa;
 float pos_encoder_previa_sb;
 
+// Variables para parte integral
+float Iprevio_m1;
+float satur_m1=0; //Saturacion para integrar el anti-windup m1
 
 uint32_t _cont_serial=0,_stop=0, _linea=0;
 float _error_ant=0; // *para D
@@ -38,7 +41,7 @@ void FnLinea(float pos0_xyz[],float pos1_xyz[]) // Posicion inicial_0, Posicion 
 {
   // Declara variables locales
   int pasos=0;
-  float delta_x=0,delta_y=0; // mm
+  float delta_x=0,delta_y=0, delta_z=0; // mm
   
   if (_cont_lin==0) // SOLO ENTRA LA PRIMERA VEZ
   {
@@ -63,10 +66,15 @@ void FnLinea(float pos0_xyz[],float pos1_xyz[]) // Posicion inicial_0, Posicion 
 
     if (pasos==0) {                // Si el movimiento se produce exclusivamente en el eje y, el paso se basa en el eje y.
         pasos=abs((pos1_xyz[1]-pos0_xyz[1])/STEP_SIZE);
+    } 
+    if (pasos==0) {                // Si el movimiento se produce exclusivamente en el eje y, el paso se basa en el eje y.
+        pasos=abs((pos1_xyz[2]-pos0_xyz[2])/STEP_SIZE);
     }
 
     delta_x=((pos1_xyz[0]-pos0_xyz[0]))/pasos;  // Cálculo de la distancia a recorrer por paso en el eje x.
     delta_y=(pos1_xyz[1]-pos0_xyz[1])/pasos;  // Cálculo de la distancia a recorrer por paso en el eje y.
+    delta_z=(pos1_xyz[2]-pos0_xyz[2])/pasos;  // Cálculo de la distancia a recorrer por paso en el eje y.
+    
     _cont_interr_pasos++;
     
    if (_cont_interr_pasos>(TIEMPO_ENTRE_PASOS/SAMPLE_TIME))
@@ -77,6 +85,7 @@ void FnLinea(float pos0_xyz[],float pos1_xyz[]) // Posicion inicial_0, Posicion 
           _cont_pasos++;
           _pos_actual_xyz[0]=_pos_actual_xyz[0]+delta_x;  // Suma de la distancia objetivo a la posición x actual.
           _pos_actual_xyz[1]=_pos_actual_xyz[1]+delta_y;  // Suma de la distancia objetivo a la posición y actual.
+          _pos_actual_xyz[2]=_pos_actual_xyz[2]+delta_z;  // Suma de la distancia objetivo a la posición y actual.
           cin_Inversa(_pos_actual_xyz[0],_pos_actual_xyz[1],_pos_actual_xyz[2]);  // Llamada a función del cálculo de la cinemática inversa.
 
             _Pos_ref[0]=ang_bhcm[0];
@@ -160,13 +169,26 @@ float Control_motor_sb(float pos_ref,float pos_encoder,float rangoError) // Cont
     //Declaración de las variables temporales del PID
 
     float P;
-    float D;   
+    float I;
+    float D;  
+    float incrI; 
 
     float error = pos_ref-pos_encoder;
  
   if (error>=rangoError || error<=(rangoError*(-1))) // Si el error es menor
-  {
-    
+  { 
+    //Acción integral 
+    incrI=KI_M1*Ts*(pos_ref_previa_sb-pos_encoder_previa_sb); // Convertir a almacenamiento de error (IMPORTANTE)
+    //Antiwind‐up 
+    if (satur_m1*incrI>0)
+    {
+      I=Iprevio_m1;
+    } 
+    else
+    { 
+      I=Iprevio_m1+incrI; 
+    }
+
     //Acción proporcional 
 
     if (pos_encoder>pos_ref)  // bajada
@@ -199,10 +221,27 @@ float Control_motor_sb(float pos_ref,float pos_encoder,float rangoError) // Cont
   // {
   //   u=P+I;
   // }
-    u=P+D;
-    Serial.printf(">P: %f\n", P);     //envía la posición en grados al terminal serie
-    Serial.printf(">D: %f\n", D);     //envía la posición en grados al terminal serie
     
+    u=P+I+D;
+    Serial.printf(">P: %f\n", P);  
+    Serial.printf(">I: %f\n", I);   
+    Serial.printf(">D: %f\n", D);    
+    
+    if (u>0.9) //Si la consigna es mayor que la saturación se pone a 1.
+    {  
+      u=0.9; 
+      satur_m1=1;
+    }
+    else if (u<-0.4) //Si la consigna es menor que la saturación se pone a -1
+    {
+      u=-0.4; 
+      satur_m1=-1;
+    }
+    else //Si no se cumple ninguna condición anterior la consigna no se modifica
+    {
+      Iprevio_m1=I; 
+      satur_m1=0; 
+    }
 
     if (u>0.9) //Si la consigna es mayor que la saturación se pone a 1.
     {  
@@ -213,7 +252,10 @@ float Control_motor_sb(float pos_ref,float pos_encoder,float rangoError) // Cont
       u=-0.4; 
     }
 
-
+    if (pos_ref!=pos_ref_previa_sb || _cont_serial==0)
+    {
+      Iprevio_m1=0;
+    }
   //Actualización de variables 
   pos_ref_previa_sb=pos_ref; //Actualizar posicion de referencia previ del paso anterior
   pos_encoder_previa_sb=pos_encoder; //Actualizar posición del encoder previa del paso anterior
@@ -345,8 +387,8 @@ void loop() {
       
       if(_linea==1) // si llamamos por serial el comando LINEA
       {
-        float pos0_xyz[3]={0,350,-160}; //posicion inicial   ESTO SE REEMPLAZA POR COORDENADAS QUE DIGA LA TRAYECTORIA
-        float pos1_xyz[3]={0,400,-160}; //posicion final
+        float pos0_xyz[3]={0,350,-120}; //posicion inicial   ESTO SE REEMPLAZA POR COORDENADAS QUE DIGA LA TRAYECTORIA
+        float pos1_xyz[3]={0,350,-160}; //posicion final
 
         FnLinea(pos0_xyz,pos1_xyz); // pos0_inicial, pos1_final 
       }

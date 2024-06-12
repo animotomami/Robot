@@ -28,11 +28,11 @@
 #define KI_M2 1.2
 
 #define KP_M1 0.5
-#define KI_M1 0
+#define KI_M1 0.1
 #define KD_M1 0.001
 
 #define KP_M1_SUBIDA 0.28
-#define KP_M1_BAJADA 0.07
+#define KP_M1_BAJADA 0.07 //0.07
 
 #define KD_M1_SUBIDA 0.002
 #define KD_M1_BAJADA 0.0015
