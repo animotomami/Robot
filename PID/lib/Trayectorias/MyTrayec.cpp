@@ -1,10 +1,18 @@
+#include <Arduino.h>
 #include "MyTrayec.h"
+#include "MyControlFn.h"
 #include <iostream>
 #include <cmath> 
 
 // Llamada a variables globales externas 
 
 extern float _pos_actual_xyz[3], ang_bhcm[4];
+extern uint32_t _t_wait_lin, _cont_lin, _cont_pasos;
+extern uint32_t _cont_interr_pasos; 
+extern float _Pos_ref[3]; //Posición de referencia en grados
+extern uint32_t _linea;
+
+// Funciones
 
 float max_2Val (float val_1, float val_2)   
     //  Función de cálculo del máximo entre dos valores:
@@ -86,4 +94,77 @@ void cin_Inversa (float x, float y, float z)
     ang_bhcm[0]=180+ang_bhcm[0];
     ang_bhcm[1]=135-ang_bhcm[1];
     ang_bhcm[2]=110+ang_bhcm[2];
+}
+
+void FnLinea(float pos0_xyz[],float pos1_xyz[]) // Posicion inicial_0, Posicion final_1
+{
+  // Declara variables locales
+  int pasos=0;
+  float delta_x=0,delta_y=0, delta_z=0; // mm
+  
+  if (_cont_lin==0) // SOLO ENTRA LA PRIMERA VEZ
+  {
+    cin_Inversa(pos0_xyz[0],pos0_xyz[1],pos0_xyz[2]);
+    _Pos_ref[0]=ang_bhcm[0];
+    _Pos_ref[1]=ang_bhcm[1];
+    _Pos_ref[2]=ang_bhcm[2];
+
+    Serial.printf(">Ang0 hombro: %f\n", _Pos_ref[1]);     //envía la posición en grados al terminal serie
+    Serial.printf(">Ang0 codo: %f\n", _Pos_ref[2]);     //envía la posición en grados al terminal serie
+     
+    _pos_actual_xyz[0]=pos0_xyz[0];
+    _pos_actual_xyz[1]=pos0_xyz[1];
+    _pos_actual_xyz[2]=pos0_xyz[2];
+    _t_wait_lin=millis();
+    _cont_lin++;
+  }
+
+  if (millis()-_t_wait_lin > 2000) {
+
+    pasos=abs((pos1_xyz[0]-pos0_xyz[0])/STEP_SIZE);    // Cálculo del número de pasos (basado en eje x para garantizar la fiabilidad de rectas diagonales).
+
+    if (pasos==0) {                // Si el movimiento se produce exclusivamente en el eje y, el paso se basa en el eje y.
+        pasos=abs((pos1_xyz[1]-pos0_xyz[1])/STEP_SIZE);
+    } 
+    if (pasos==0) {                // Si el movimiento se produce exclusivamente en el eje y, el paso se basa en el eje y.
+        pasos=abs((pos1_xyz[2]-pos0_xyz[2])/STEP_SIZE);
+    }
+
+    delta_x=((pos1_xyz[0]-pos0_xyz[0]))/pasos;  // Cálculo de la distancia a recorrer por paso en el eje x.
+    delta_y=(pos1_xyz[1]-pos0_xyz[1])/pasos;  // Cálculo de la distancia a recorrer por paso en el eje y.
+    delta_z=(pos1_xyz[2]-pos0_xyz[2])/pasos;  // Cálculo de la distancia a recorrer por paso en el eje y.
+    
+    _cont_interr_pasos++;
+    
+   if (_cont_interr_pasos>(TIEMPO_ENTRE_PASOS/SAMPLE_TIME))
+   {
+    if(_cont_pasos<pasos)
+        {
+
+          _cont_pasos++;
+          _pos_actual_xyz[0]=_pos_actual_xyz[0]+delta_x;  // Suma de la distancia objetivo a la posición x actual.
+          _pos_actual_xyz[1]=_pos_actual_xyz[1]+delta_y;  // Suma de la distancia objetivo a la posición y actual.
+          _pos_actual_xyz[2]=_pos_actual_xyz[2]+delta_z;  // Suma de la distancia objetivo a la posición y actual.
+          cin_Inversa(_pos_actual_xyz[0],_pos_actual_xyz[1],_pos_actual_xyz[2]);  // Llamada a función del cálculo de la cinemática inversa.
+
+            _Pos_ref[0]=ang_bhcm[0];
+            _Pos_ref[1]=ang_bhcm[1];
+            _Pos_ref[2]=ang_bhcm[2];  
+
+            _cont_interr_pasos=0; // reset contador
+        }
+        else
+        {
+          _cont_pasos=0;
+          _linea=0;
+          _cont_lin=0;
+        }
+   }
+    
+
+    Serial.printf(">Pos ref base: %f\n", _Pos_ref[0]);     //envía la posición en grados al terminal serie
+    Serial.printf(">Pos ref hombro: %f\n", _Pos_ref[1]);     //envía la posición en grados al terminal serie
+    Serial.printf(">Pos ref codo: %f\n", _Pos_ref[2]);     //envía la posición en grados al terminal serie
+  }
+
 }

@@ -45,6 +45,7 @@
 
 /// Funciones
 float linPWM(float valPWM, int numMot);
-
+float Control_motor_sb(float pos_ref,float pos_encoder,float rangoError);
+float Control_motor(float pos_ref,float pos_encoder,float rangoError, float kp, float ki);
 
 

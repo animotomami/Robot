@@ -37,240 +37,240 @@ uint32_t _t_wait_lin=0, _cont_lin=0, _cont_pasos=0;
 uint32_t _cont_interr_pasos=0; 
 
 
-void FnLinea(float pos0_xyz[],float pos1_xyz[]) // Posicion inicial_0, Posicion final_1
-{
-  // Declara variables locales
-  int pasos=0;
-  float delta_x=0,delta_y=0, delta_z=0; // mm
+// void FnLinea(float pos0_xyz[],float pos1_xyz[]) // Posicion inicial_0, Posicion final_1
+// {
+//   // Declara variables locales
+//   int pasos=0;
+//   float delta_x=0,delta_y=0, delta_z=0; // mm
   
-  if (_cont_lin==0) // SOLO ENTRA LA PRIMERA VEZ
-  {
-    cin_Inversa(pos0_xyz[0],pos0_xyz[1],pos0_xyz[2]);
-    _Pos_ref[0]=ang_bhcm[0];
-    _Pos_ref[1]=ang_bhcm[1];
-    _Pos_ref[2]=ang_bhcm[2];
+//   if (_cont_lin==0) // SOLO ENTRA LA PRIMERA VEZ
+//   {
+//     cin_Inversa(pos0_xyz[0],pos0_xyz[1],pos0_xyz[2]);
+//     _Pos_ref[0]=ang_bhcm[0];
+//     _Pos_ref[1]=ang_bhcm[1];
+//     _Pos_ref[2]=ang_bhcm[2];
 
-    Serial.printf(">Ang0 hombro: %f\n", _Pos_ref[1]);     //envía la posición en grados al terminal serie
-    Serial.printf(">Ang0 codo: %f\n", _Pos_ref[2]);     //envía la posición en grados al terminal serie
+//     Serial.printf(">Ang0 hombro: %f\n", _Pos_ref[1]);     //envía la posición en grados al terminal serie
+//     Serial.printf(">Ang0 codo: %f\n", _Pos_ref[2]);     //envía la posición en grados al terminal serie
      
-    _pos_actual_xyz[0]=pos0_xyz[0];
-    _pos_actual_xyz[1]=pos0_xyz[1];
-    _pos_actual_xyz[2]=pos0_xyz[2];
-    _t_wait_lin=millis();
-    _cont_lin++;
-  }
+//     _pos_actual_xyz[0]=pos0_xyz[0];
+//     _pos_actual_xyz[1]=pos0_xyz[1];
+//     _pos_actual_xyz[2]=pos0_xyz[2];
+//     _t_wait_lin=millis();
+//     _cont_lin++;
+//   }
 
-  if (millis()-_t_wait_lin > 2000) {
+//   if (millis()-_t_wait_lin > 2000) {
 
-    pasos=abs((pos1_xyz[0]-pos0_xyz[0])/STEP_SIZE);    // Cálculo del número de pasos (basado en eje x para garantizar la fiabilidad de rectas diagonales).
+//     pasos=abs((pos1_xyz[0]-pos0_xyz[0])/STEP_SIZE);    // Cálculo del número de pasos (basado en eje x para garantizar la fiabilidad de rectas diagonales).
 
-    if (pasos==0) {                // Si el movimiento se produce exclusivamente en el eje y, el paso se basa en el eje y.
-        pasos=abs((pos1_xyz[1]-pos0_xyz[1])/STEP_SIZE);
-    } 
-    if (pasos==0) {                // Si el movimiento se produce exclusivamente en el eje y, el paso se basa en el eje y.
-        pasos=abs((pos1_xyz[2]-pos0_xyz[2])/STEP_SIZE);
-    }
+//     if (pasos==0) {                // Si el movimiento se produce exclusivamente en el eje y, el paso se basa en el eje y.
+//         pasos=abs((pos1_xyz[1]-pos0_xyz[1])/STEP_SIZE);
+//     } 
+//     if (pasos==0) {                // Si el movimiento se produce exclusivamente en el eje y, el paso se basa en el eje y.
+//         pasos=abs((pos1_xyz[2]-pos0_xyz[2])/STEP_SIZE);
+//     }
 
-    delta_x=((pos1_xyz[0]-pos0_xyz[0]))/pasos;  // Cálculo de la distancia a recorrer por paso en el eje x.
-    delta_y=(pos1_xyz[1]-pos0_xyz[1])/pasos;  // Cálculo de la distancia a recorrer por paso en el eje y.
-    delta_z=(pos1_xyz[2]-pos0_xyz[2])/pasos;  // Cálculo de la distancia a recorrer por paso en el eje y.
+//     delta_x=((pos1_xyz[0]-pos0_xyz[0]))/pasos;  // Cálculo de la distancia a recorrer por paso en el eje x.
+//     delta_y=(pos1_xyz[1]-pos0_xyz[1])/pasos;  // Cálculo de la distancia a recorrer por paso en el eje y.
+//     delta_z=(pos1_xyz[2]-pos0_xyz[2])/pasos;  // Cálculo de la distancia a recorrer por paso en el eje y.
     
-    _cont_interr_pasos++;
+//     _cont_interr_pasos++;
     
-   if (_cont_interr_pasos>(TIEMPO_ENTRE_PASOS/SAMPLE_TIME))
-   {
-    if(_cont_pasos<pasos)
-        {
+//    if (_cont_interr_pasos>(TIEMPO_ENTRE_PASOS/SAMPLE_TIME))
+//    {
+//     if(_cont_pasos<pasos)
+//         {
 
-          _cont_pasos++;
-          _pos_actual_xyz[0]=_pos_actual_xyz[0]+delta_x;  // Suma de la distancia objetivo a la posición x actual.
-          _pos_actual_xyz[1]=_pos_actual_xyz[1]+delta_y;  // Suma de la distancia objetivo a la posición y actual.
-          _pos_actual_xyz[2]=_pos_actual_xyz[2]+delta_z;  // Suma de la distancia objetivo a la posición y actual.
-          cin_Inversa(_pos_actual_xyz[0],_pos_actual_xyz[1],_pos_actual_xyz[2]);  // Llamada a función del cálculo de la cinemática inversa.
+//           _cont_pasos++;
+//           _pos_actual_xyz[0]=_pos_actual_xyz[0]+delta_x;  // Suma de la distancia objetivo a la posición x actual.
+//           _pos_actual_xyz[1]=_pos_actual_xyz[1]+delta_y;  // Suma de la distancia objetivo a la posición y actual.
+//           _pos_actual_xyz[2]=_pos_actual_xyz[2]+delta_z;  // Suma de la distancia objetivo a la posición y actual.
+//           cin_Inversa(_pos_actual_xyz[0],_pos_actual_xyz[1],_pos_actual_xyz[2]);  // Llamada a función del cálculo de la cinemática inversa.
 
-            _Pos_ref[0]=ang_bhcm[0];
-            _Pos_ref[1]=ang_bhcm[1];
-            _Pos_ref[2]=ang_bhcm[2];  
+//             _Pos_ref[0]=ang_bhcm[0];
+//             _Pos_ref[1]=ang_bhcm[1];
+//             _Pos_ref[2]=ang_bhcm[2];  
 
-            _cont_interr_pasos=0; // reset contador
-        }
-        else
-        {
-          _cont_pasos=0;
-          _linea=0;
-          _cont_lin=0;
-        }
-   }
+//             _cont_interr_pasos=0; // reset contador
+//         }
+//         else
+//         {
+//           _cont_pasos=0;
+//           _linea=0;
+//           _cont_lin=0;
+//         }
+//    }
     
 
-    Serial.printf(">Pos ref base: %f\n", _Pos_ref[0]);     //envía la posición en grados al terminal serie
-    Serial.printf(">Pos ref hombro: %f\n", _Pos_ref[1]);     //envía la posición en grados al terminal serie
-    Serial.printf(">Pos ref codo: %f\n", _Pos_ref[2]);     //envía la posición en grados al terminal serie
-  }
+//     Serial.printf(">Pos ref base: %f\n", _Pos_ref[0]);     //envía la posición en grados al terminal serie
+//     Serial.printf(">Pos ref hombro: %f\n", _Pos_ref[1]);     //envía la posición en grados al terminal serie
+//     Serial.printf(">Pos ref codo: %f\n", _Pos_ref[2]);     //envía la posición en grados al terminal serie
+//   }
 
-}
+// }
 
 
-float Control_motor(float pos_ref,float pos_encoder,float rangoError, float kp, float ki)
-{
-    //Declaración de la variable de control
+// float Control_motor(float pos_ref,float pos_encoder,float rangoError, float kp, float ki)
+// {
+//     //Declaración de la variable de control
 
-    float u;
-    float u_pwm;
+//     float u;
+//     float u_pwm;
 
-    //Declaración de las variables temporales del P
+//     //Declaración de las variables temporales del P
 
-    float P;
-    float error = pos_ref-pos_encoder;
+//     float P;
+//     float error = pos_ref-pos_encoder;
 
  
-  if (error>=rangoError || error<=(rangoError*(-1))) // Si el error es menor
-  {
+//   if (error>=rangoError || error<=(rangoError*(-1))) // Si el error es menor
+//   {
     
-    /////// Acción proporcional 
-    P=kp*(pos_ref-pos_encoder);
+//     /////// Acción proporcional 
+//     P=kp*(pos_ref-pos_encoder);
 
 
-    ////// Consigna de control
+//     ////// Consigna de control
 
-    u=P;
+//     u=P;
     
-    if (u>SATPOS) //Si la consigna es mayor que la saturación se pone a 1.
-    {  
-      u=SATPOS; 
-    }
-    else if (u<SATNEG) //Si la consigna es menor que la saturación se pone a -1
-    {
-      u=SATNEG; 
-    }
+//     if (u>SATPOS) //Si la consigna es mayor que la saturación se pone a 1.
+//     {  
+//       u=SATPOS; 
+//     }
+//     else if (u<SATNEG) //Si la consigna es menor que la saturación se pone a -1
+//     {
+//       u=SATNEG; 
+//     }
 
     
-    //Actualización de variables 
+//     //Actualización de variables 
     
-    pos_ref_previa=pos_ref; //Actualizar posicion de referencia previ del paso anterior
-    pos_encoder_previa=pos_encoder; //Actualizar posición del encoder previa del paso anterior
-    u_pwm=u/245;
-  }
-  else
-  {
-    u_pwm=0;
-  }
+//     pos_ref_previa=pos_ref; //Actualizar posicion de referencia previ del paso anterior
+//     pos_encoder_previa=pos_encoder; //Actualizar posición del encoder previa del paso anterior
+//     u_pwm=u/245;
+//   }
+//   else
+//   {
+//     u_pwm=0;
+//   }
     
-  return u_pwm;
-}
+//   return u_pwm;
+// }
 
-float Control_motor_sb(float pos_ref,float pos_encoder,float rangoError) // Control que distingue entre desplazamiento de subida y bajada
-{
-    //Declaración de la variable de control
+// float Control_motor_sb(float pos_ref,float pos_encoder,float rangoError) // Control que distingue entre desplazamiento de subida y bajada
+// {
+//     //Declaración de la variable de control
 
-    float u;
-    float u_pwm;
+//     float u;
+//     float u_pwm;
 
-    //Declaración de las variables temporales del PID
+//     //Declaración de las variables temporales del PID
 
-    float P;
-    float I;
-    float D;  
-    float incrI; 
+//     float P;
+//     float I;
+//     float D;  
+//     float incrI; 
 
-    float error = pos_ref-pos_encoder;
+//     float error = pos_ref-pos_encoder;
  
-  if (error>=rangoError || error<=(rangoError*(-1))) // Si el error es menor
-  { 
-    //Acción integral 
-    incrI=KI_M1*Ts*(pos_ref_previa_sb-pos_encoder_previa_sb); // Convertir a almacenamiento de error (IMPORTANTE)
-    //Antiwind‐up 
-    if (satur_m1*incrI>0)
-    {
-      I=Iprevio_m1;
-    } 
-    else
-    { 
-      I=Iprevio_m1+incrI; 
-    }
+//   if (error>=rangoError || error<=(rangoError*(-1))) // Si el error es menor
+//   { 
+//     //Acción integral 
+//     incrI=KI_M1*Ts*(pos_ref_previa_sb-pos_encoder_previa_sb); // Convertir a almacenamiento de error (IMPORTANTE)
+//     //Antiwind‐up 
+//     if (satur_m1*incrI>0)
+//     {
+//       I=Iprevio_m1;
+//     } 
+//     else
+//     { 
+//       I=Iprevio_m1+incrI; 
+//     }
 
-    //Acción proporcional 
+//     //Acción proporcional 
 
-    if (pos_encoder>pos_ref)  // bajada
-    {
-      P=KP_M1_BAJADA*(pos_ref-pos_encoder);
-      if (P<-0.35)
-      {
-        P=-0.35;
-      }
-      D=KD_M1_BAJADA*((error-_error_ant)/Ts);
-    }
-    else if (pos_encoder<=pos_ref) //subida
-    {
-      P=KP_M1_SUBIDA*(pos_ref-pos_encoder);
-      if (P>=0.9)
-      {
-        P=0.9;
-      }
-      D=KD_M1_SUBIDA*((error-_error_ant)/Ts);
-    }
+//     if (pos_encoder>pos_ref)  // bajada
+//     {
+//       P=KP_M1_BAJADA*(pos_ref-pos_encoder);
+//       if (P<-0.35)
+//       {
+//         P=-0.35;
+//       }
+//       D=KD_M1_BAJADA*((error-_error_ant)/Ts);
+//     }
+//     else if (pos_encoder<=pos_ref) //subida
+//     {
+//       P=KP_M1_SUBIDA*(pos_ref-pos_encoder);
+//       if (P>=0.9)
+//       {
+//         P=0.9;
+//       }
+//       D=KD_M1_SUBIDA*((error-_error_ant)/Ts);
+//     }
     
 
-  //Consigna de control
+//   //Consigna de control
 
-  // if (((P+D)<0 && P>0) || ((P+D)>0 && P<0))
-  // {
-  //   u=0;
-  // } 
-  // else 
-  // {
-  //   u=P+I;
-  // }
+//   // if (((P+D)<0 && P>0) || ((P+D)>0 && P<0))
+//   // {
+//   //   u=0;
+//   // } 
+//   // else 
+//   // {
+//   //   u=P+I;
+//   // }
     
-    u=P+I+D;
-    Serial.printf(">P: %f\n", P);  
-    Serial.printf(">I: %f\n", I);   
-    Serial.printf(">D: %f\n", D);    
+//     u=P+I+D;
+//     Serial.printf(">P: %f\n", P);  
+//     Serial.printf(">I: %f\n", I);   
+//     Serial.printf(">D: %f\n", D);    
     
-    if (u>0.9) //Si la consigna es mayor que la saturación se pone a 1.
-    {  
-      u=0.9; 
-      satur_m1=1;
-    }
-    else if (u<-0.4) //Si la consigna es menor que la saturación se pone a -1
-    {
-      u=-0.4; 
-      satur_m1=-1;
-    }
-    else //Si no se cumple ninguna condición anterior la consigna no se modifica
-    {
-      Iprevio_m1=I; 
-      satur_m1=0; 
-    }
+//     if (u>0.9) //Si la consigna es mayor que la saturación se pone a 1.
+//     {  
+//       u=0.9; 
+//       satur_m1=1;
+//     }
+//     else if (u<-0.4) //Si la consigna es menor que la saturación se pone a -1
+//     {
+//       u=-0.4; 
+//       satur_m1=-1;
+//     }
+//     else //Si no se cumple ninguna condición anterior la consigna no se modifica
+//     {
+//       Iprevio_m1=I; 
+//       satur_m1=0; 
+//     }
 
-    if (u>0.9) //Si la consigna es mayor que la saturación se pone a 1.
-    {  
-      u=0.9; 
-    }
-    else if (u<-0.4) //Si la consigna es menor que la saturación se pone a -1
-    {
-      u=-0.4; 
-    }
+//     if (u>0.9) //Si la consigna es mayor que la saturación se pone a 1.
+//     {  
+//       u=0.9; 
+//     }
+//     else if (u<-0.4) //Si la consigna es menor que la saturación se pone a -1
+//     {
+//       u=-0.4; 
+//     }
 
-    if (pos_ref!=pos_ref_previa_sb || _cont_serial==0)
-    {
-      Iprevio_m1=0;
-    }
-  //Actualización de variables 
-  pos_ref_previa_sb=pos_ref; //Actualizar posicion de referencia previ del paso anterior
-  pos_encoder_previa_sb=pos_encoder; //Actualizar posición del encoder previa del paso anterior
-  _error_ant=error;
+//     if (pos_ref!=pos_ref_previa_sb || _cont_serial==0)
+//     {
+//       Iprevio_m1=0;
+//     }
+//   //Actualización de variables 
+//   pos_ref_previa_sb=pos_ref; //Actualizar posicion de referencia previ del paso anterior
+//   pos_encoder_previa_sb=pos_encoder; //Actualizar posición del encoder previa del paso anterior
+//   _error_ant=error;
 
-  u_pwm=u;
-  }
-  else
-  {
-    u_pwm=0;
-  }
+//   u_pwm=u;
+//   }
+//   else
+//   {
+//     u_pwm=0;
+//   }
   
 
-return u_pwm;
-}
+// return u_pwm;
+// }
 
 
 hw_timer_t * timer = NULL; // Puntero para configurar timer
@@ -282,7 +282,6 @@ void ARDUINO_ISR_ATTR InterrrupTimer()
 {
   has_expired=true;
 }
-
 
 
 void setup()

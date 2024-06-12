@@ -11,3 +11,4 @@
 
 // Funciones
 void cin_Inversa (float x, float y, float z);
+void FnLinea(float pos0_xyz[],float pos1_xyz[]);
